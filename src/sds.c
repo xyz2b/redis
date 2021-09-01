@@ -202,6 +202,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
 sds sdscatlen(sds s, const void *t, size_t len) {
     size_t curlen = sdslen(s);
 
+    // 会导致sds字符串长度改变的操作都调用该函数，进行扩容判断与扩容处理
     s = sdsMakeRoomFor(s, len);
     if (s == NULL) return NULL;
     // 将c字符串copy到原有sds字符串的末尾
