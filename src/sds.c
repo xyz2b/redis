@@ -144,7 +144,69 @@ sds sdsgrowzero(sds s, size_t len) {
     return s;
 }
 
-// 扩容sds
+// 扩容sds，addlen是需要扩容的大小
 sds sdsMakeRoomFor(sds s, size_t addlen) {
+    void *sh, *newsh;
+    size_t len, newlen;
+    int hdrlen;
 
+
+    // 获取原先的sds type
+    char type, oldtype = s[-1] & SDS_TYPE_MASK;
+    // 获取sds结构体指针
+    sh = (char *)(s - sdsHdrSize(oldtype));
+
+
+    // 1.获取剩余空间
+    size_t avail = sdsavail(s);
+    // 剩余空间大于需要增加的扩容，不需要扩容
+    if (avail > addlen) return s;
+
+    // 2.需要扩容的空间
+    len = sdslen(s);
+    newlen = (len + addlen);
+    if (newlen < SDS_MAX_REALLOC)
+        newlen *= 2;
+    else
+        newlen += SDS_MAX_REALLOC;
+
+    // 3.判断扩容之后的新长度所需要的sds结构体类型
+    type = sdsReqType(newlen);
+
+    // 4.扩容之后的sds类型和之前的类型是否相同
+    // 相同，表示扩容前后sds结构体相同，可以使用realloc重新分配内存
+    // 不相同，表示扩容前后sds结构体不相同，不能使用realloc，只能使用malloc重新分配内存
+    hdrlen = sdsHdrSize(type);
+    if (oldtype == type) {
+        newsh = s_realloc(sh, hdrlen + newlen + 1);
+        if (newsh == NULL) return NULL;
+        s = (char *)newsh + hdrlen;
+    } else {
+        newsh = s_malloc(hdrlen + newlen + 1);
+        if (newsh == NULL) return NULL;
+        // copy原来的sds字符串到新的sds中
+        memcpy((char *)newsh + hdrlen, s, len + 1);
+        // 释放原先的sds
+        s_free(sh);
+        s = (char *)newsh + hdrlen;
+        s[-1] = type;
+        // 因为存储的字符串没有发生变化，所以标识字符串长度的len也没有发生变化，只是alloc变大了
+        sdssetlen(s, len);
+    }
+    // 设置新的alloc
+    sdssetalloc(s, newlen);
+    return s;
+}
+
+// 将给定C字符串拼接到sds字符串的末尾
+sds sdscatlen(sds s, const void *t, size_t len) {
+    size_t curlen = sdslen(s);
+
+    s = sdsMakeRoomFor(s, len);
+    if (s == NULL) return NULL;
+    // 将c字符串copy到原有sds字符串的末尾
+    memcpy(s+curlen, t, len);
+    sdssetlen(s, curlen + len);
+    s[curlen + len] = '\0';
+    return s;
 }

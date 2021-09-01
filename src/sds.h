@@ -5,6 +5,7 @@
 #ifndef REDIS_SDS_H
 #define REDIS_SDS_H
 
+#define SDS_MAX_REALLOC (1024 * 1024)
 extern const char *SDS_NOINIT;
 
 #include <sys/types.h>
@@ -99,12 +100,51 @@ static inline void sdssetlen(sds s, size_t newlen) {
     }
 }
 
+// 获取sds中可用的存储字符串的空间
+static inline size_t sdsavail(const sds s) {
+    // sds中flags字段位置位于真实存储字符串位置的前一个位置
+    unsigned char flags = s[-1];
+    switch (flags & SDS_TYPE_MASK) {
+        case SDS_TYPE_8:
+            return SDS_HDR(8, s)->alloc - SDS_HDR(8, s)->len;
+        case SDS_TYPE_16:
+            return SDS_HDR(16, s)->alloc - SDS_HDR(16, s)->len;
+        case SDS_TYPE_32:
+            return SDS_HDR(32, s)->alloc - SDS_HDR(32, s)->len;
+        case SDS_TYPE_64:
+            return SDS_HDR(64, s)->alloc - SDS_HDR(64, s)->len;
+        default:
+            return 0;
+    }
+}
+
+// 设置sds的alloc
+static inline void sdssetalloc(const sds s, size_t newlen) {
+    // sds中flags字段位置位于真实存储字符串位置的前一个位置
+    unsigned char flags = s[-1];
+    switch (flags & SDS_TYPE_MASK) {
+        case SDS_TYPE_8:
+            SDS_HDR(8, s)->alloc = newlen;
+            break;
+        case SDS_TYPE_16:
+            SDS_HDR(16, s)->alloc = newlen;
+            break;
+        case SDS_TYPE_32:
+            SDS_HDR(32, s)->alloc = newlen;
+            break;
+        case SDS_TYPE_64:
+            SDS_HDR(64, s)->alloc = newlen;
+            break;
+    }
+}
+
 sds sdsnewlen(const void* init, size_t initlen);
 sds sdsnew(const char *init);
 sds sdsempty(void);
 sds sdsdup(const sds s);
 void sdsfree(sds s);
 sds sdsMakeRoomFor(sds s, size_t addlen);
+sds sdscatlen(sds s, const void *t, size_t len);
 
 
 

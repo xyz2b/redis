@@ -9,5 +9,6 @@
 // 方便后续更换内存分配器
 #define s_malloc malloc
 #define s_free free
+#define s_realloc realloc
 
 #endif //REDIS_SDSALLOC_H
