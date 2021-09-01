@@ -286,23 +286,25 @@ void sdsrange(sds s, ssize_t start, ssize_t end) {
         if (end < 0) end = 0;
     }
 
-    // 如果start大于end，截取的字符串大小为0，否则为(end-start) + 1
+    // 如果start大于end，截取的字符串大小为0，即截取出来的字符串是空字符串（将空字符串赋值给当前sds字符串）；否则为(end-start) + 1
     newlen = (start > end) ? 0 : (end - start) + 1;
+    // 如果截取的字符串大小不为0
     if (newlen != 0) {
-        // start大于sds字符串的长度，截取的字符串大小为0
+        // start大于sds字符串的长度，表明截取的字符串大小为0，即截取出来的字符串是空字符串（将空字符串赋值给当前sds字符串）
         if (start >= (ssize_t)len) {
             newlen = 0;
         } else if (end >= (ssize_t)len) {   // end大于sds字符串的长度，则将end设置为字符串最后一个字符的位置
             end = len - 1;
-            // 如果start大于end，截取的字符串大小为0，否则为(end-start) + 1
+            // 如果start大于end，表明截取的字符串大小为0，即截取出来的字符串是空字符串（将空字符串赋值给当前sds字符串）；否则截取的字符串大小为(end-start) + 1
             newlen = (start > end) ? 0 : (end - start) + 1;
         }
-    } else {    // 如果截取的字符串大小为0
+    } else {    // 如果截取的字符串大小为0，设置start = 0
         start = 0;
     }
 
-    // start = 0,
+    // start = 0，表示从sds字符串开头开始截取，即不需要移动字符串位置，直接设置sds的len为截取的长度即可
+    // newlen = 0,表明截取的字符串长度为0,即截取出来的字符串是空字符串，直接设置结束标记即可
     if (start && newlen) memmove(s, s + start, newlen);
     s[newlen] = '\0';
-    sdssetlen(newlen);
+    sdssetlen(s, newlen);
 }
