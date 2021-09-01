@@ -139,14 +139,25 @@ static inline void sdssetalloc(const sds s, size_t newlen) {
     }
 }
 
+// 新建
 sds sdsnewlen(const void* init, size_t initlen);
 sds sdsnew(const char *init);
 sds sdsempty(void);
+
+// 复制
 sds sdsdup(const sds s);
+
+// 释放
 void sdsfree(sds s);
+
+// 扩容
 sds sdsMakeRoomFor(sds s, size_t addlen);
+
+// 字符串拼接
 sds sdscatlen(sds s, const void *t, size_t len);
 sds sdscat(sds s, const char *t);
+sds sdscatsds(sds s, const sds t);
+
 
 
 #endif //REDIS_SDS_H
