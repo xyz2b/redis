@@ -6,6 +6,7 @@
 #include "sds.h"
 #include "sdsalloc.h"
 
+// 获取不同type的sds结构体的大小
 static inline int sdsHdrSize(char type) {
     switch (type) {
         case SDS_TYPE_8:
@@ -21,6 +22,7 @@ static inline int sdsHdrSize(char type) {
     }
 }
 
+// 根据字符串的长度获取需要使用什么类型的sds结构体来存储
 static inline char sdsReqType(size_t string_size) {
     if (string_size < 0xff)       // 2的8次方，即uint8_t 一个字节所能表示的范围
         return SDS_TYPE_8;
@@ -198,7 +200,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen) {
     return s;
 }
 
-// 将给定C字符串拼接到sds字符串的末尾
+// 将给定字符串拼接到sds字符串的末尾，指定长度
 sds sdscatlen(sds s, const void *t, size_t len) {
     size_t curlen = sdslen(s);
 
@@ -210,4 +212,9 @@ sds sdscatlen(sds s, const void *t, size_t len) {
     sdssetlen(s, curlen + len);
     s[curlen + len] = '\0';
     return s;
+}
+
+// 将给定C字符串拼接到sds字符串的末尾
+sds sdscat(sds s, const char *t) {
+    return sdscatlen(s, t, strlen(t));
 }

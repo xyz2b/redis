@@ -145,7 +145,7 @@ sds sdsdup(const sds s);
 void sdsfree(sds s);
 sds sdsMakeRoomFor(sds s, size_t addlen);
 sds sdscatlen(sds s, const void *t, size_t len);
-
+sds sdscat(sds s, const char *t);
 
 
 #endif //REDIS_SDS_H
