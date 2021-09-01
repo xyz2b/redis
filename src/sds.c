@@ -218,3 +218,8 @@ sds sdscatlen(sds s, const void *t, size_t len) {
 sds sdscat(sds s, const char *t) {
     return sdscatlen(s, t, strlen(t));
 }
+
+// 将给定sds字符串拼接到sds字符串的末尾
+sds sdscatsds(sds s, const sds t) {
+    return sdscatlen(s, t, sdslen(t));
+}

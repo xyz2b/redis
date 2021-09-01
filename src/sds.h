@@ -62,7 +62,8 @@ struct __attribute__ ((__packed__)) sdshdr64 {
 // 根据真实字符串的位置s，获取sds结构体的首地址，指针往前移动结构大小个位置即可
 #define SDS_HDR(T, s) ((struct sdshdr##T *) ((s) - (sizeof(struct sdshdr##T))))
 
-// 获取sds字符串的长度
+// 根据创建时返回的真实存储字符串的位置，来获取sds字符串的长度
+// 根据创建时返回的真实存储字符串的位置可以获取到对应的sds结构体的首地址
 static inline size_t sdslen(const sds s) {
     // sds中flags字段位置位于真实存储字符串位置的前一个位置
     unsigned char flags = s[-1];
