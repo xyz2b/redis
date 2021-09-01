@@ -79,9 +79,32 @@ static inline size_t sdslen(const sds s) {
     }
 }
 
+// 设置sds字符串的长度
+static inline void sdssetlen(sds s, size_t newlen) {
+    // sds中flags字段位置位于真实存储字符串位置的前一个位置
+    unsigned char flags = s[-1];
+    switch (flags & SDS_TYPE_MASK) {
+        case SDS_TYPE_8:
+            SDS_HDR(8, s)->len = newlen;
+            break;
+        case SDS_TYPE_16:
+            SDS_HDR(16, s)->len = newlen;
+            break;
+        case SDS_TYPE_32:
+            SDS_HDR(32, s)->len = newlen;
+            break;
+        case SDS_TYPE_64:
+            SDS_HDR(64, s)->len = newlen;
+            break;
+    }
+}
+
 sds sdsnewlen(const void* init, size_t initlen);
 sds sdsnew(const char *init);
+sds sdsempty(void);
 sds sdsdup(const sds s);
+void sdsfree(sds s);
+sds sdsMakeRoomFor(sds s, size_t addlen);
 
 
 

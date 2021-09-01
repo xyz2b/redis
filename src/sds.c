@@ -127,3 +127,24 @@ void sdsfree(sds s) {
     // s(真正存储字符串的位置)减去结构体大小即获取到结构体首地址
     s_free((char *)s - sdsHdrSize(s[-1]));
 }
+
+// 用空字符串将sds扩展至指定长度
+sds sdsgrowzero(sds s, size_t len) {
+    size_t curlen = sdslen(s);
+
+    if (len <= curlen) return s;
+    // 扩容
+    s = sdsMakeRoomFor(s, len - curlen);
+    if (s == NULL) return NULL;
+
+    // 将扩容部分设置为0空字符
+    memset(s+curlen , 0, len - curlen);
+    // 设置库容后的长度
+    sdssetlen(s, len);
+    return s;
+}
+
+// 扩容sds
+sds sdsMakeRoomFor(sds s, size_t addlen) {
+
+}
