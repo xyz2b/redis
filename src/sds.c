@@ -223,3 +223,8 @@ sds sdscat(sds s, const char *t) {
 sds sdscatsds(sds s, const sds t) {
     return sdscatlen(s, t, sdslen(t));
 }
+
+// 将给定字符串赋值给sds字符串，指定长度
+sds sdscpylen(sds s, const char *t, size_t len) {
+
+}

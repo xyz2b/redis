@@ -158,6 +158,8 @@ sds sdscatlen(sds s, const void *t, size_t len);
 sds sdscat(sds s, const char *t);
 sds sdscatsds(sds s, const sds t);
 
+// 字符串赋值
+sds sdscpylen(sds s, const char *t, size_t len);
 
 
 #endif //REDIS_SDS_H
