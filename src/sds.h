@@ -139,6 +139,24 @@ static inline void sdssetalloc(const sds s, size_t newlen) {
     }
 }
 
+// 获取sds的alloc
+static inline size_t sdsalloc(const sds s) {
+    // sds中flags字段位置位于真实存储字符串位置的前一个位置
+    unsigned char flags = s[-1];
+    switch (flags & SDS_TYPE_MASK) {
+        case SDS_TYPE_8:
+            return SDS_HDR(8, s)->alloc;
+        case SDS_TYPE_16:
+            return SDS_HDR(16, s)->alloc;
+        case SDS_TYPE_32:
+            return SDS_HDR(32, s)->alloc;
+        case SDS_TYPE_64:
+            return SDS_HDR(64, s)->alloc;
+        default:
+            return 0;
+    }
+}
+
 // 新建
 sds sdsnewlen(const void* init, size_t initlen);
 sds sdsnew(const char *init);
@@ -160,6 +178,9 @@ sds sdscatsds(sds s, const sds t);
 
 // 字符串赋值
 sds sdscpylen(sds s, const char *t, size_t len);
+sds sdscpy(sds s, const char *t);
 
-
+// 字符串处理
+sds sdstrim(sds s, const char *cset);
+void sdsrange(sds s, ssize_t start, ssize_t end);
 #endif //REDIS_SDS_H

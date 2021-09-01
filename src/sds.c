@@ -147,6 +147,7 @@ sds sdsgrowzero(sds s, size_t len) {
 }
 
 // 扩容sds，addlen是需要扩容的大小
+// 第二个参数是相对于当前sds的len需要增加的大小，而不是相对于当前sds的alloc需要增加的大小
 sds sdsMakeRoomFor(sds s, size_t addlen) {
     void *sh, *newsh;
     size_t len, newlen;
@@ -226,5 +227,82 @@ sds sdscatsds(sds s, const sds t) {
 
 // 将给定字符串赋值给sds字符串，指定长度
 sds sdscpylen(sds s, const char *t, size_t len) {
+    // 判断sds现有的空间是否能够存储给定的字符串
+    if (sdsalloc(s) < len) {
+        // 如果不够就扩容
+        // sdsMakeRoomFor传入的第二个参数是相对于当前sds的len需要增加的大小
+        s = sdsMakeRoomFor(s, len - sdslen(s));
+        if (s == NULL) return NULL;
+    }
+    // 将字符串copy到sds字符串中
+    memcpy(s, t, len);
+    s[len] = '\0';
+    sdssetlen(s, len);
+    return s;
+}
 
+// 将c字符串赋值给sds字符串
+sds sdscpy(sds s, const char *t) {
+    return sdscpylen(s, t, strlen(t));
+}
+
+// 将sds字符串中连续包含的指定C字符串中的字符删除
+sds sdstrim(sds s, const char *cset) {
+    char *start, *end, *sp, *ep;
+    size_t len;
+
+    sp = start = s;
+    ep = end = s + sdslen(s) - 1;
+    // 从左到右遍历sds中的字符，看是否在C字符串中，直到第一个不在C字符串中的字符为止
+    while (sp <= end && strchr(cset, *sp)) sp++;
+    // 从右到左遍历sds中的字符，看是否在C字符串中，直到第一个不在C字符串中的字符为止
+    while (ep > sp && strchr(cset, *ep)) ep--;
+    // 删除之后的长度，如果sp大于ep，说明原本的sds字符串被删除完了，长度为0，否则长度就是(ep - sp) + 1
+    len = (sp > ep) ? 0 : ((ep - sp) + 1);
+    // 如果s == sp，说明原sds字符串开头位置的字符没有在C字符串中的，即开头位置没有变化，此时不需要移动内存位置，直接修改len即可
+    if (s != sp) memmove(s, sp, len);
+    s[len] = '\0';
+    sdssetlen(s ,len);
+    return s;
+}
+
+// 字符串切割
+void sdsrange(sds s, ssize_t start, ssize_t end) {
+    size_t newlen, len = sdslen(s);
+
+    if (len == 0) return;
+
+    // 处理start为负的情况
+    if (start < 0) {
+        start = len + start;
+        // 如果负值超出了当前sds的长度，直接将start置为0
+        if (start < 0) start = 0;
+    }
+
+    // 处理end为负的情况
+    if (end < 0) {
+        end = len + end;
+        // 如果负值超出了当前的sds的长度，直接将end置为0
+        if (end < 0) end = 0;
+    }
+
+    // 如果start大于end，截取的字符串大小为0，否则为(end-start) + 1
+    newlen = (start > end) ? 0 : (end - start) + 1;
+    if (newlen != 0) {
+        // start大于sds字符串的长度，截取的字符串大小为0
+        if (start >= (ssize_t)len) {
+            newlen = 0;
+        } else if (end >= (ssize_t)len) {   // end大于sds字符串的长度，则将end设置为字符串最后一个字符的位置
+            end = len - 1;
+            // 如果start大于end，截取的字符串大小为0，否则为(end-start) + 1
+            newlen = (start > end) ? 0 : (end - start) + 1;
+        }
+    } else {    // 如果截取的字符串大小为0
+        start = 0;
+    }
+
+    // start = 0,
+    if (start && newlen) memmove(s, s + start, newlen);
+    s[newlen] = '\0';
+    sdssetlen(newlen);
 }
