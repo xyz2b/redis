@@ -457,7 +457,7 @@ void sdstoupper(sds s) {
 
 
 // 为什么是21
-// 因为 long long类型所能
+// 因为 long long类型所能表示的数值为-9223372036854775808至9223372036854775807，转换为字符串之后最大为20位，再加一位字符串结束符，总共21位
 #define SDS_LLSTR_SIZE 21
 
 // number --> string
