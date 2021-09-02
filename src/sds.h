@@ -201,6 +201,12 @@ void sdsfreesplitres(sds *tokens, int count);
 void sdstolower(sds s);
 void sdstoupper(sds s);
 
+// 根据数值创建sds字符串
+sds sdsfromlonglong(long long value);
+
+// 字符串拼接
+sds sdsjoin(char **argv, int argc, char *sep);
+sds sdsjoinsds(sds *argv, int argc, const char *sep, size_t seplen);
 
 
 #endif //REDIS_SDS_H

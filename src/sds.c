@@ -460,7 +460,7 @@ void sdstoupper(sds s) {
 // 因为 long long类型所能表示的数值为-9223372036854775808至9223372036854775807，转换为字符串之后最大为20位，再加一位字符串结束符，总共21位
 #define SDS_LLSTR_SIZE 21
 
-// number --> string
+// long long number --> string
 // 传入的s是一个数组容器，最小的大小为SDS_LLSTR_SIZE
 // 返回转换之后的字符串长度
 int sdsll2str(char *s, long long value) {
@@ -492,4 +492,78 @@ int sdsll2str(char *s, long long value) {
         p--;
     }
     return l;
+}
+
+// unsigned long long number --> string
+// 传入的s是一个数组容器，最小的大小为SDS_LLSTR_SIZE
+// 返回转换之后的字符串长度
+int sdsull2str(char *s, unsigned long long value) {
+    char *p, aux;
+    size_t l;
+
+    p = s;
+    // 将数值的每一位取出转成字符串(ascii码存储)存储，低位位于低地址中
+    do {
+        *p++ = '0' + (value % 10);
+        value /= 10;
+    } while (value);
+
+    // 转换成字符串之后的长度
+    l = p - s;
+    // 字符串结束标记
+    *p = '\0';
+
+    // 将转换后的字符串翻转，高位存在低地址中，大端存储
+    p--;    // 跳过字符串结束标记
+    while (s < p) {
+        aux = *s;
+        *s = *p;
+        *p = aux;
+        s++;
+        p--;
+    }
+    return l;
+}
+
+// 根据long long数值创建sds字符串
+sds sdsfromlonglong(long long value) {
+    char buf[SDS_LLSTR_SIZE];
+    size_t len = sdsll2str(buf, value);
+
+    return sdsnewlen(buf, len);
+}
+
+// 根据指分隔符，拼接字符串
+// argv是C字符串数组
+// argc是C字符串数组的长度
+// sep是需要join的分隔符(C字符串)
+sds sdsjoin(char **argv, int argc, char *sep) {
+    sds join = sdsempty();
+    int j;
+
+    for (j = 0; j < argc; j++) {
+        join = sdscat(join, argv[j]);
+        // 如果是最后一个字符串，则其后不需要再添加分隔符了
+        if (j != argc - 1) join = sdscat(join, sep);
+    }
+
+    return join;
+}
+
+// 根据指分隔符，拼接字符串
+// argv是sds字符串数组
+// argc是sds字符串数组的长度
+// sep是需要join的分隔符字符串
+// seplen是需要join的分割字符串的长度
+sds sdsjoinsds(sds *argv, int argc, const char *sep, size_t seplen) {
+    sds join = sdsempty();
+    int j;
+
+    for (j = 0; j < argc; j++) {
+        join = sdscatsds(join, argv[j]);
+        // 如果是最后一个字符串，则其后不需要再添加分隔符了
+        if (j != argc - 1) join = sdscatlen(join, sep, seplen);
+    }
+
+    return join;
 }
