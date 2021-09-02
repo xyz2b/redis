@@ -183,4 +183,24 @@ sds sdscpy(sds s, const char *t);
 // 字符串处理
 sds sdstrim(sds s, const char *cset);
 void sdsrange(sds s, ssize_t start, ssize_t end);
+
+// 更新len
+void sdsupdatelen(sds s);
+
+// 清空sds字符串
+void sdsclear(sds s);
+
+// 比较两个sds字符串
+int sdscmp(const sds s1, const sds s2);
+
+// C字符串分割
+sds *sdssplitlen(const char *s, ssize_t len, const char *sep, int seplen, int *count);
+void sdsfreesplitres(sds *tokens, int count);
+
+// 大小写转换
+void sdstolower(sds s);
+void sdstoupper(sds s);
+
+
+
 #endif //REDIS_SDS_H

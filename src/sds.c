@@ -3,6 +3,7 @@
 //
 
 #include <string.h>
+#include <ctype.h>
 #include "sds.h"
 #include "sdsalloc.h"
 
@@ -246,7 +247,13 @@ sds sdscpy(sds s, const char *t) {
     return sdscpylen(s, t, strlen(t));
 }
 
-// 将sds字符串中连续包含的指定C字符串中的字符删除
+/**
+ * 将sds字符串中连续包含的指定C字符串中的字符删除
+ * s = sdsnew("AA...AA.a.aa.aHelloWorld     :::");
+ * s = sdstrim(s, "Aa. :");
+ * printf("%s\n", s);
+ * 输出"HelloWorld"
+ * */
 sds sdstrim(sds s, const char *cset) {
     char *start, *end, *sp, *ep;
     size_t len;
@@ -266,7 +273,12 @@ sds sdstrim(sds s, const char *cset) {
     return s;
 }
 
-// 字符串切割
+/**
+ * 字符串切割
+ *
+ * s = sdsnew("Hello World");
+ * sdsrange(s, 1, -1);  => "ello World"
+ * */
 void sdsrange(sds s, ssize_t start, ssize_t end) {
     size_t newlen, len = sdslen(s);
 
@@ -307,4 +319,177 @@ void sdsrange(sds s, ssize_t start, ssize_t end) {
     if (start && newlen) memmove(s, s + start, newlen);
     s[newlen] = '\0';
     sdssetlen(s, newlen);
+}
+
+/**
+ * 根据实际字符串的结束符，来更新字符串的长度
+ *
+ * s = sdsnew("foobar");
+ * s[2] = '\0'; // 相当于将原先的字符串截断了
+ * sdsupdatelen(s);
+ * printf("%d\n", sdslen(s));
+ *
+ * 如果没有执行sdsupdatelen，输出应该是6，因为new sds时，只会根据传入的字符串长度来设置sds len
+ * 执行了sdsupdatelen，输出就是2，根据实际的字符串结束符位置来判断
+ * */
+void sdsupdatelen(sds s) {
+    size_t reallen = strlen(s);
+    sdssetlen(s, reallen);
+}
+
+// 清空sds字符串
+void sdsclear(sds s) {
+    sdssetlen(s, 0);
+    s[0] = '\0';
+}
+
+/**
+ * 使用memcmp比较两个sds字符串s1和s2
+ * 如果完全相同返回0
+ * 如果s1包含s2，返回1
+ * 如果s2包含s1，返回-1
+ * 其他情况返回memcmp的结果
+ * */
+int sdscmp(const sds s1, const sds s2) {
+    size_t l1, l2, minlen;
+    int cmp;
+
+    l1 = sdslen(s1);
+    l2 = sdslen(s2);
+    minlen = (l1 < s2) ? l1 : l2;
+    cmp = memcmp(s1, s2, minlen);
+    if (cmp == 0) return l1 > l2 ? 1 : (l1 < l2 ? -1 : 0);
+    return cmp;
+}
+
+/**
+ * 根据分隔符分割C字符串，返回分割后的字符串数组
+ *
+ * sdssplit("foo_-_bar", "_-_");
+ * 返回["foo", "bar"]
+ * */
+sds *sdssplitlen(const char *s, ssize_t len, const char *sep, int seplen, int *count) {
+    // elements是目前分割出来多少个元素
+    // 初始化存放分割后字符串的容器大小slots为5
+    int elements = 0, slots = 5;
+    // start是目前处理的C字符串中的索引，标识处理进度
+    long start = 0, j;
+    // 存放分割后字符串的数组容器
+    sds *tokens;
+
+    // 如果分隔符的大小为0，或者待分割的字符串大小不合法小于0，就返回NULL
+    if (seplen < 1 || len < 0) return NULL;
+
+    // 申请存放分割后字符串的容器
+    tokens = s_malloc(sizeof(sds) * slots);
+    if(tokens == NULL) return NULL;
+
+    // 如果待分割的字符串大小为0，直接返回空的数组，没有任何元素
+    if (len == 0) {
+        *count = 0;
+        return tokens;
+    }
+
+    // 只需遍历待分割字符串最后一个分隔符长度的字符串的位置
+    for (j = 0; j < (len - (seplen - 1)); j++) {
+        // 保存分割后字符串的容器大小不够了，扩容
+        // +2是因为每一轮分割都会分割出来2个元素，所以至少要预留2个元素的空间
+        if (slots < elements + 2) {
+            sds *newtokens;
+
+            // 扩容2倍
+            slots *= 2;
+            newtokens = s_realloc(tokens, sizeof(sds) * slots);
+            if (newtokens == NULL) return NULL;
+            tokens = newtokens;
+        }
+
+        // 在待分割字符串中查找分隔符，并进行字符串分割
+        if ((seplen == 1 && *(s + j) == sep[0] || (memcpy(s + j, sep, seplen) == 0))) {
+            // 用分隔符之前的字符串创建sds字符串
+            tokens[elements] = sdsnewlen(s + start, j - start);
+            if (tokens[elements] == NULL) goto cleanup;
+            elements++;
+            // 跳过分隔符
+            start = j + seplen;
+            j = j + seplen + 1;
+        }
+    }
+
+    // 将分割完成之后，最后剩下的字符串创建成sds字符串，加入tokens中，因为它是最后一个分割出来的元素
+    tokens[elements] = sdsnewlen(s + start, len - start);
+    if (tokens[elements] == NULL) goto cleanup;
+    elements++;
+    *count = elements;
+    return tokens;
+
+cleanup:
+    {
+        int i;
+        for (i = 0; i < elements; i++) sdsfree(tokens[i]);
+        s_free(tokens);
+        *count = 0;
+        return NULL;
+    }
+}
+
+// 释放分割字符串数组
+void sdsfreesplitres(sds *tokens, int count) {
+    if (!tokens) return;;
+    while (count--)
+        sdsfree(tokens[count]);
+    s_free(tokens);
+}
+
+// 转换为小写
+void sdstolower(sds s) {
+    size_t len = sdslen(s), j;
+
+    for (j = 0; j < len; j++) s[j] = tolower(s[j]);
+}
+
+// 转换为大写
+void sdstoupper(sds s) {
+    size_t len = sdslen(s), j;
+
+    for (j = 0; j < len; j++) s[j] = toupper(s[j]);
+}
+
+
+// 为什么是21
+// 因为 long long类型所能
+#define SDS_LLSTR_SIZE 21
+
+// number --> string
+// 传入的s是一个数组容器，最小的大小为SDS_LLSTR_SIZE
+// 返回转换之后的字符串长度
+int sdsll2str(char *s, long long value) {
+    char *p, aux;
+    unsigned long long v;
+    size_t l;
+
+    v = (value < 0) ? -value : value;
+    p = s;
+    // 将数值的每一位取出转成字符串(ascii码存储)存储，低位位于低地址中
+    do {
+        *p++ = '0' + (v % 10);
+        v /= 10;
+    } while (v);
+    if (value < 0) *p++ = '-';
+
+    // 转换成字符串之后的长度
+    l = p - s;
+    // 字符串结束标记
+    *p = '\0';
+
+    // 将转换后的字符串翻转，高位存在低地址中，大端存储
+    p--;    // 跳过字符串结束标记
+    while (s < p) {
+        aux = *s;
+        *s = *p;
+        *p = aux;
+        s++;
+        p--;
+    }
+    return l;
 }
