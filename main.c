@@ -1,5 +1,7 @@
 #include <stdio.h>
-
+#include <string.h>
+#include "src/sds.h"
+#include "src/adlist.h"
 
 void get_next(char * s, size_t len, int *next) {
     int i, j;
@@ -55,12 +57,28 @@ int index_kpm(const char * s, size_t slen, const char * t, size_t tlen, size_t p
 }
 
 int main() {
+    list *list, *o;
+    listNode* n;
 
-    int index = index_kpm("abcabx", 6, "ca", 2, 0);
-    printf("%d\n", index);
+    list = listCreate();
+    o = listCreate();
 
 
+    int i = 0;
+    int j = 1;
+    listAddNodeTail(list, &i);
+    listAddNodeTail(list, &j);
 
+    listAddNodeTail(o, &i);
+    listAddNodeTail(o, &j);
+
+    listJoin(list, o);
+
+    listIter* iter;
+    iter = listGetIterator(list, AL_START_HEAD);
+    while ((n = listNext(iter)) != NULL) {
+        printf("%d\n", *(int*)(n->value));
+    }
 
     return 0;
 }
