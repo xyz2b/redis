@@ -113,14 +113,14 @@ typedef struct zlentry {
     }\
 } while(0)
 
-// 获取encoding字段的值，传入的是ziplist项跳过prevlen字段之后的指针，即开头是encoding字段
+// 获取encoding字段首字节的值，传入的是ziplist项跳过prevlen字段之后的指针，即开头是encoding字段
 // encoding值小于ZIP_STR_MASK的一定是ZIP_STR编码，因为ZIP_INT编码开头两位都是11
 #define ZIP_ENTRY_ENCODING(ptr, encoding) do { \
     (encoding) = (ptr[0]);                     \
     if ((encoding) < ZIP_STR_MASK) (encoding) &= ZIP_STR_MASK;\
 } while(0)
 
-// 获取encoding字段的值，以及len字段的长度以及len字段的值
+// 根据encoding字段的值，获取encoding字段的长度(lensize)以及content的长度值(len)
 // 传入的是ziplist项跳过prevlen字段之后的指针
 #define ZIP_DECODE_LENGTH(ptr, encoding, lensize, len) do { \
     ZIP_ENTRY_ENCODING((ptr), (encoding));                  \
@@ -178,7 +178,7 @@ unsigned char* ziplistInsert(unsigned char* zl, unsigned char* p, unsigned char*
     return __ziplistInsert(zl, p, s, slen);
 }
 
-// 在ziplist中p项之后插入s
+// 在ziplist中p项之前插入s
 unsigned char *__ziplistInsert(unsigned char *zl, unsigned char *p, unsigned char *s, unsigned int slen) {
     // 当前ziplist的总长度
     size_t curlen = intrev32ifbe(ZIPLIST_BYTES(zl)), reqlen;
@@ -190,25 +190,26 @@ unsigned char *__ziplistInsert(unsigned char *zl, unsigned char *p, unsigned cha
 
     zlentry tail;
 
-    // 如果p项不为结束标识符，说明是在ziplist中插入，需要获取p项的长度
+    // 获取插入位置前一项的长度，即获取p项前一项的长度
+    // 如果p项不为结束标识符，说明是在ziplist中插入，需要获取p项前一项的长度，即存储在p项中开头的prevlen
     if(p[0] != ZIP_END) {
         ZIP_DECODE_PREVLEN(p, prevlensize, prevlen);
-    } else {    // 如果p项为结束标识符，说明要在ziplist结尾插入，需要获取zipkist结尾项的长度
+    } else {    // 如果p项为结束标识符，在结束符之前插入，就说明要在ziplist结尾插入，需要获取zipkist结尾项的长度
         unsigned char* ptail = ZIPLIST_TAIL_OFFSET(zl);
         if (ptail[0] != ZIP_END) {  // 如果ptail[0] == ZIP_END，表示ziplist此时为空，没有任何项
             prevlen = zipRawEntryLength(ptail);
-
         }
     }
+
 
     return zl;
 }
 
-// 返回p项整体的长度
+// 返回p项整体的长度 = prevlensize+encodingsize(lensize)+contentlen(len)
 unsigned int zipRawEntryLength(unsigned char *p) {
     unsigned int prevlensize, encoding, lensize, len;
     ZIP_DECODE_PREVLENSIZE(p, prevlensize);
-
-    return 0;
+    ZIP_DECODE_LENGTH(p+prevlensize, encoding, lensize, len);
+    return prevlensize + lensize + len;
 }
 
