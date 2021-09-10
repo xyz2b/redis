@@ -15,7 +15,25 @@
 unsigned char* ziplistNew(void);
 unsigned char* ziplistResize(unsigned char* zl, unsigned int len);
 
+// 获取zl中p项的下一项
+unsigned char* ziplistNext(unsigned char* zl, unsigned char* p);
+// 获取zl中p项的前一项
+unsigned char* ziplistPrev(unsigned char* zl, unsigned char* p);
+// 查询ziplist中元素的数量
+unsigned int ziplistLen(unsigned char* zl);
+// 拼接两个zl，拼接完之后，first中的元素在前，second中的元素在后
+unsigned char* ziplistMerge(unsigned char** first, unsigned char** second);
+
 // 增
 unsigned char* ziplistInsert(unsigned char* zl, unsigned char* p, unsigned char* s, unsigned int slen);
+unsigned char* ziplistPush(unsigned char* zl, unsigned char* s, unsigned int slen, int where);
+// 删
+unsigned char* ziplistDelete(unsigned char* zl, unsigned char** p);
+unsigned char* ziplistDeleteRange(unsigned char* zl, int index, unsigned int num);
+// 查
+unsigned char* ziplistFind(unsigned char* p, unsigned char* vstr, unsigned int vlen, unsigned int skip);
+unsigned int ziplistCompare(unsigned char* p, unsigned char* sstr, unsigned int slen);
 
+// 获取ziplist项中存储的值
+unsigned int ziplistGet(unsigned char* p, unsigned char** sstr, unsigned int* slen, long long *sval);
 #endif //REDIS_ZIPLIST_H
