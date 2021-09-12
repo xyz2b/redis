@@ -27,12 +27,33 @@ typedef struct zskiplist {
     int level;  // 跳表最大层数
 } zskiplist;
 
+// 表示一个区间，min到max之间的，minex表示这个区间包不包含min，maxex表示这个区间包不包含max，为0表示包含，为1表示不包含
+// minex = 1; maxex = 0; --> (min, max]
+// minex = 0; maxex = 0; --> [min, max]
+typedef struct {
+    double min, max;
+    int minex, maxex;
+} zrangespec;
+
+typedef struct {
+    double min, max;
+    int minex, maxex;
+} zlexrangespec;
+
 zskiplistNode* zslCreateNode(int level, double score, sds ele);
 zskiplist* zslCreate(void);
 void zslFreeNode(zskiplistNode* node);
 void zslFree(zskiplist* zsl);
 zskiplistNode* zslInsert(zskiplist* zsl, double score, sds ele);
-
-
+void zslDeleteNode(zskiplist* zsl, zskiplistNode* x, zskiplistNode** update);
+int zslDelete(zskiplist* zsl, double score, sds els, zskiplistNode** node);
+zskiplistNode* zslUpdateScore(zskiplist* zsl, double curscore, sds ele, double newscore);
+unsigned long zslGetRank(zskiplist* zsl, double score, sds ele);
+zskiplistNode* zslGetElementByRank(zskiplist* zsl, unsigned long rank);
+int zslIsInRange(zskiplist* zsl, zrangespec* range);
+int zslValueGteMin(double value, zrangespec* spec);
+int zslValueLteMax(double value, zrangespec* spec);
+zskiplistNode* zslFirstInRange(zskiplist* zsl, zrangespec* range);
+zskiplistNode* zslLastInRange(zskiplist* zsl, zrangespec* range);
 
 #endif //REDIS_SERVER_H
