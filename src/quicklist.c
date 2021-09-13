@@ -181,4 +181,11 @@ REDIS_STATIC int __quicklistNodeAllowInsert(const quicklistNode* node, const int
         return 0;
 }
 
+int quicklistPushHead(quicklist* quicklist, void* value, size_t sz) {
+    quicklistNode* orig_head = quicklist->head;
+    if (__quicklistNodeAllowInsert(quicklist->head, quicklist->fill, sz)) { // 可以在本节点的ziplist中直接插入
 
+    } else {    // 新建一个节点插入
+
+    }
+}
