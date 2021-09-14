@@ -58,9 +58,6 @@
 #define ZIP_IS_STR(enc) (((enc) & ZIP_STR_MASK) < ZIP_STR_MASK)
 
 
-#define ZIPLIST_HEAD 0
-#define ZIPLIST_TAIL 1
-
 // ZIPLIST_INT编码的数值所占的长度，即content的长度
 unsigned int zipIntSize(unsigned  char encoding) {
     switch (encoding) {
@@ -920,4 +917,9 @@ unsigned char* ziplistMerge(unsigned char** first, unsigned char** second) {
         *second = target;
     }
     return target;
+}
+
+// 获取ziplist的长度
+size_t ziplistBlobLen(unsigned char* zl) {
+    return intrev32ifbe(ZIPLIST_BYTES(zl));
 }

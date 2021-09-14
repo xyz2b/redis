@@ -5,6 +5,9 @@
 #ifndef REDIS_ZIPLIST_H
 #define REDIS_ZIPLIST_H
 
+#define ZIPLIST_HEAD 0
+#define ZIPLIST_TAIL 1
+
 // ziplist的列表头大小，包括2个32bit整数和1个16bit整数，分别表示压缩列表的总字节数，列表最后一个元素离列表头的偏移，以及列表中的元素个数
 #define ZIPLIST_HEADER_SIZE     (sizeof(uint32_t)*2+sizeof(uint16_t))
 // ziplist的列表尾大小，包括1个8bit整数，表示列表结束
@@ -36,4 +39,10 @@ unsigned int ziplistCompare(unsigned char* p, unsigned char* sstr, unsigned int 
 
 // 获取ziplist项中存储的值
 unsigned int ziplistGet(unsigned char* p, unsigned char** sstr, unsigned int* slen, long long *sval);
+
+// 获取zl的长度
+size_t ziplistBlobLen(unsigned char* zl);
+
+// 返回ziplist第index项的指针（index为负值，从后往前，为正值，从前往后）
+unsigned char* ziplistIndex(unsigned char* zl, int index);
 #endif //REDIS_ZIPLIST_H

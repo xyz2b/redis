@@ -37,18 +37,55 @@ typedef struct quicklist {
 } quicklist;
 
 
+typedef struct quicklistIter {
+    const quicklist* quicklist; // 迭代器所遍历的quicklist
+    quicklistNode* current; // 遍历的当前节点
+    unsigned char* zi;  // zi指向ziplist中当前遍历元素的项
+    long offset;    // 当前遍历元素在ziplist中的偏移（为负表示遍历方向从尾到头）
+    int direction;  // 遍历的方向
+} quicklistIter;
+
+// quicklist中的一个元素
+typedef struct quicklistEntry {
+    const quicklist* quicklist;
+    quicklistNode* node;
+    unsigned char* zi;  // zi指向ziplist中当前元素的项
+    unsigned char* value;   // 如果当前遍历元素是字符串，则存储在这里
+    long long longval;  // 如果当前遍历元素是整型数值，则存储在这里
+    unsigned int sz;    // 当前遍历元素是字符串，才会有该字段，表示字符串的长度
+    int offset; // 当前遍历元素在ziplist中的偏移（为负表示遍历方向从尾到头）
+} quicklistEntry;
+
+
 #define QUCIKLIST_NODE_ENCODING_RAW 1
 #define QUCIKLIST_NODE_ENCODING_LZF 2
 
 #define QUCIKLIST_NODE_CONITAINER_NONE 1
 #define QUCIKLIST_NODE_CONITAINER_ZIPLIST 1
 
+#define AL_START_HEAD 0
+#define AL_START_TAIL 1
+
 
 quicklist* quicklistCreate(void);
-quicklist* quciklistNew(int fill, int compress);
+quicklist* quicklistNew(int fill, int compress);
 
 int quicklistPushHead(quicklist* quicklist, void* value, size_t sz);
 int quicklistPushTail(quicklist* quicklist, void* value, size_t sz);
 void quicklistPush(quicklist* quicklist, void* value, size_t sz, int where);
+void quicklistRelease(quicklist* quicklist);
 
+void quicklistSetCompressDepth(quicklist* quicklist, int compress);
+void quicklistSetFill(quicklist* quicklist, int fill);
+void quicklistSetOptions(quicklist* quicklist, int fill, int depth);
+void quicklistAppendZiplist(quicklist* quicklist, unsigned char* zl);
+
+quicklist* quicklistAppendValuesFromZiplist(quicklist* quicklist, unsigned char* zl);
+
+void quicklistDelEntry(quicklistIter* iter, quicklistEntry* entry);
+
+int quicklistIndex(const quicklist* quicklist, const long long idx, quicklistEntry* entry);
+
+
+int quicklistReplaceAtIndex(quicklist* quicklist, long index, void* data, int sz);
 #endif //REDIS_QUICKLIST_H
