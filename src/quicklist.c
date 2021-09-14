@@ -308,7 +308,7 @@ quicklist* quicklistCreateFromZiplist(int fill, int compress, unsigned char* zl)
 #define quicklistDeleteIfEmpty(ql, n) \
     do {                              \
         if ((n)->count == 0) {        \
-            __quicklistDelNode((ql), (n)); \
+            _quicklistDelNode((ql), (n)); \
             (n) = NULL;\
         }\
     } while(0)
@@ -384,10 +384,10 @@ int quicklistIndex(const quicklist* quicklist, const long long idx, quicklistEnt
     initEntry(entry);
     entry->quicklist = quicklist;
 
-    if (!forward) { // 从尾到头遍历
+    if (!forward) { // idx为负，从尾到头遍历
         index = (-idx) - 1;
         n = quicklist->tail;
-    } else {    // 从头到尾遍历
+    } else {    // idx为正，从头到尾遍历
         index = idx;
         n = quicklist->head;
     }
@@ -414,6 +414,7 @@ int quicklistIndex(const quicklist* quicklist, const long long idx, quicklistEnt
     if (forward) {
         entry->offset = index - accum;
     } else {
+        // offset为负的，从尾到头
         entry->offset = (-index) - 1 + accum;
     }
     // 获取index索引的元素在ziplist中的项
@@ -625,4 +626,167 @@ REDIS_STATIC void _quicklistInsert(quicklist* quicklist, quicklistEntry* entry, 
     quicklist->count++;
 }
 
+void quicklistInsertBefore(quicklist* quicklist, quicklistEntry* entry, void* value, const size_t sz) {
+    _quicklistInsert(quicklist, entry, value, sz, 0);
+}
 
+void quicklistInsertAfter(quicklist* quicklist, quicklistEntry* entry, void* value, const size_t sz) {
+    _quicklistInsert(quicklist, entry, value, sz, 1);
+}
+
+// 从start索引开始，删除count个元素？
+// start为正，表示从头到尾数start个位置开始往后删除count个元素
+// start为负，表示从尾到头数start个位置开始往后删除count个元素
+int quicklistDelRange(quicklist* quicklist, const long start, const long count) {
+    if (count <= 0)
+        return 0;
+
+    unsigned long extent = count;
+
+    if (start >= 0 && extent > (quicklist->count - start)) {    // start为正，要删除的元素总和 大于 从start(从头到尾)开始到结尾的元素的总和
+        extent = quicklist->count - start;  // 将删除的元素数量限制到 从start开始到结尾的元素的总和
+    } else if (start < 0 && extent > (unsigned  long)(-start)) {       // start为负，要删除的元素总和 大于 从start(从尾到头)开始到结尾的元素的总和
+        extent = -start;    // 将删除的元素数量限制到 从start开始到结尾的元素的总和
+    }
+
+    quicklistEntry entry;
+    // 找到索引为start的元素
+    if (!quicklistIndex(quicklist, start, &entry))
+        return 0;
+
+    // 获取索引为start的元素
+    quicklistNode* node = entry.node;
+
+    // 一个node一个node的循环删除
+    while (extent) {
+        quicklistNode* next = node->next;
+
+        unsigned long del;
+        int delete_entire_node = 0;
+
+        // 计算本node内需要删除的元素数量del
+        if (entry.offset == 0 && extent >= node->count) {   // 开始位置在当前node开头，并且删除的元素要大于本node的元素数量，表示该node要整个被删掉
+            delete_entire_node = 1;
+            del = node->count;
+        } else if (entry.offset > 0 && extent >= node->count) { // 删除位置在node中，并且删除的元素要大于本node的元素数量
+            del = node->count - entry.offset;
+        } else if (entry.offset < 0) { //start为负， 从尾到头 -offset的位置
+            del = -entry.offset;    // entry.offset < 0 && extent >= node->count
+
+            if (del > extent)   // entry.offset < 0 && extent < node->count  即需要删除的元素数量 小于从-offset（从尾到头）位置开始往后本node中剩余的元素数量
+                del = extent;
+        } else {    // entry.offset >= 0 && extent < node->count 即需要删除的元素数量 小于 本node中剩余的元素数量
+            del = extent;
+        }
+
+        if (delete_entire_node) {
+            _quicklistDelNode(quicklist, node);
+        } else {
+            node->zl = ziplistDeleteRange(node->zl, entry.offset, del);
+            quicklistNodeUpdateSz(node);
+            node->count -= del;
+            quicklistDeleteIfEmpty(quicklist, node);
+        }
+        extent -= del;  // 更新还剩下需要删除的元素数量
+
+        node = next;
+
+        entry.offset = 0;
+    }
+    return 1;
+}
+
+// 比较给定的元素p2是否和p1项(ziplist项)中存储的元素相同
+int quicklistCompare(unsigned char* p1, unsigned char* p2, int p2_len) {
+    return ziplistCompare(p1, p2, p2_len);
+}
+
+
+quicklistIter* quicklistGetIterator(const quicklist* quicklist, int direction) {
+    quicklistIter* iter;
+
+    iter = zmalloc(sizeof(*iter));
+
+    if (direction == AL_START_HEAD) {
+        iter->current = quicklist->head;
+        iter->offset = 0;   // 从头往尾遍历，offset为0，表示第一个元素
+    } else if (direction == AL_START_TAIL) {
+        iter->current = quicklist->tail;
+        iter->offset = -1;  // 从尾往头遍历，offset为-1，表示最后一个元素
+    }
+
+    iter->direction = direction;
+    iter->quicklist = quicklist;
+
+    iter->zi = NULL;
+
+    return iter;
+}
+
+quicklistIter* quicklistGetIteratorAtIdx(const quicklist* quicklist, const int direction, const long long idx) {
+    quicklistEntry entry;
+
+    if (quicklistIndex(quicklist, idx, &entry)) {   // 获取index位置元素所在的node以及在该node中偏移量的信息
+        quicklistIter* base = quicklistGetIterator(quicklist, direction);
+        base->zi = NULL;
+        base->current = entry.node;
+        base->offset = entry.offset;
+        return base;
+    } else {    // 没找该索引对应的元素
+        return NULL;
+    }
+}
+
+void quicklistReleaseIterator(quicklistIter* iter) {
+    zfree(iter);
+}
+
+
+int quicklistNext(quicklistIter* iter, quicklistEntry* entry) {
+    initEntry(entry);
+
+    if (!iter) {
+        return 0;
+    }
+
+    entry->quicklist = iter->quicklist;
+    entry->node = iter->current;
+
+    if (!iter->current)
+        return 0;
+
+    unsigned char* (*nextFn) (unsigned char*, unsigned char*) = NULL;
+    int offset_update = 0;
+
+    if (!iter->zi) {    // 如果当前迭代器的zi为空，表明迭代器当前的node还没开始倍遍历，就直接使用迭代器的offset去索引ziplist的项，作为当前迭代器的zi，即获取第一项作为当前迭代的项
+        iter->zi = ziplistIndex(iter->current->zl, iter->offset);
+    } else {    // 用ziplist的函数 获取下一项
+        if (iter->direction == AL_START_HEAD) {
+            nextFn = ziplistNext;
+            offset_update = 1;
+        } else if (iter->direction == AL_START_TAIL) {
+            nextFn = ziplistPrev;
+            offset_update = 1;
+        }
+        iter->zi = nextFn(iter->current->zl, iter->zi);
+        iter->offset += offset_update;
+    }
+
+    entry->zi = iter->zi;
+    entry->offset = iter->offset;
+
+    if (iter->zi) { // 迭代器当前node中还有元素，next获取的不是NULL
+        ziplistGet(entry->zi, &entry->value, &entry->sz, &entry->longval);  // 获取元素值
+        return 1;
+    } else {    // 迭代器当前node中没有元素了，next获取的是NULL，此时就需要去下一个node中获取下一个元素
+        if (iter->direction == AL_START_HEAD) {
+            iter->current = iter->current->next;
+            iter->offset = 0;
+        } else if (iter->direction == AL_START_TAIL) {
+            iter->current = iter->current->prev;
+            iter->offset = -1;
+        }
+        iter->zi = NULL;
+        return quicklistNext(iter, entry);
+    }
+}

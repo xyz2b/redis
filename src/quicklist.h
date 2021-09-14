@@ -88,4 +88,15 @@ int quicklistIndex(const quicklist* quicklist, const long long idx, quicklistEnt
 
 
 int quicklistReplaceAtIndex(quicklist* quicklist, long index, void* data, int sz);
+
+void quicklistInsertBefore(quicklist* quicklist, quicklistEntry* entry, void* value, const size_t sz);
+void quicklistInsertAfter(quicklist* quicklist, quicklistEntry* entry, void* value, const size_t sz);
+
+int quicklistDelRange(quicklist* quicklist, const long start, const long count);
+
+quicklistIter* quicklistGetIterator(const quicklist* quicklist, int direction);
+quicklistIter* quicklistGetIteratorAtIdx(const quicklist* quicklist, const int direction, const long long idx);
+void quicklistReleaseIterator(quicklistIter* iter);
+
+int quicklistNext(quicklistIter* iter, quicklistEntry* entry);
 #endif //REDIS_QUICKLIST_H
