@@ -867,7 +867,67 @@ int quicklistPopCustom(quicklist* quicklist, int where, unsigned char* data, uns
         *sval = -123456789;
 
     quicklistNode* node;
+    // 获取需要弹出元素的节点，quicklist头部或尾部
     if (where == QUICKLIST_HEAD && quicklist->head) {
-
+        node = quicklist->head;
+    } else if (where == QUICKLIST_TAIL && quicklist->tail) {
+        node = quicklist->tail;
+    } else {
+        return 0;
     }
+
+    // 获取ziplist中需要弹出的项，节点的ziplist的头部或者尾部
+    p = ziplistIndex(node->zl, pos);
+    if (ziplistGet(p, &vstr, &vlen, &vlong)) {
+        // 字符串类型的值
+        if(vstr) {
+            if (data)
+                *data = saver(vstr, vlen);
+            if (sz)
+                *sz = vlen;
+        } else {    // 整型类型的值
+            if (data)
+                *data = NULL;
+            if (sval)
+                *sval = vlong;
+        }
+        // 删除弹出的元素
+        quicklistDelIndex(quicklist, node, &p);
+        return 1;
+    }
+    return 0;
+}
+
+REDIS_STATIC void* _quicklistSaver(unsigned char* data, unsigned int sz) {
+    unsigned char* vstr;
+    if (data) {
+        vstr = zmalloc(sz);
+        memcpy(vstr, data, sz);
+        return vstr;
+    }
+    return NULL;
+}
+
+int quicklistPop(quicklist* quicklist, int where, unsigned char** data, unsigned int* sz, long long* slong) {
+    unsigned char* vstr;
+    unsigned int vlen;
+    long long vlong;
+
+    if (quicklist->count == 0)
+        return 0;
+    int ret = quicklistPopCustom(quicklist, where, &vstr, &vlen, &vlong, _quicklistSaver);
+    if (data)
+        *data = vstr;
+    if (slong)
+        *slong = vlong;
+    if (sz)
+        *sz = vlen;
+    return ret;
+}
+
+void quicklistPush(quicklist* quicklist, void* value, const size_t sz, int where) {
+    if (where == QUICKLIST_HEAD)
+        quicklistPushHead(quicklist, value, sz);
+    else if (where == QUICKLIST_TAIL)
+        quicklistPushTail(quicklist, value, sz);
 }

@@ -105,4 +105,8 @@ int quicklistNext(quicklistIter* iter, quicklistEntry* entry);
 quicklist* quicklistDup(quicklist* orig);
 
 void quicklistRotate(quicklist* quicklist);
+
+int quicklistPop(quicklist* quicklist, int where, unsigned char** data, unsigned int* sz, long long* slong);
+int quicklistPopCustom(quicklist* quicklist, int where, unsigned char* data, unsigned int* sz, long long* sval,
+                       void* (*saver)(unsigned char* data, unsigned int sz));
 #endif //REDIS_QUICKLIST_H
