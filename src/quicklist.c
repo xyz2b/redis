@@ -77,8 +77,8 @@ REDIS_STATIC quicklistNode* quicklistCreateNode(void) {
     node->count = 0;
     node->sz = 0;
     node->next = node->prev = NULL;
-    node->encoding = QUCIKLIST_NODE_ENCODING_RAW;
-    node->container = QUCIKLIST_NODE_CONITAINER_ZIPLIST;
+    node->encoding = QUICKLIST_NODE_ENCODING_RAW;
+    node->container = QUICKLIST_NODE_CONITAINER_ZIPLIST;
     node->recompress = 0;
     return node;
 }
@@ -788,5 +788,86 @@ int quicklistNext(quicklistIter* iter, quicklistEntry* entry) {
         }
         iter->zi = NULL;
         return quicklistNext(iter, entry);
+    }
+}
+
+// copy一个新的quicklist出来
+quicklist* quicklistDup(quicklist* orig) {
+    quicklist* copy;
+
+    copy = quicklistNew(orig->fill, orig->compress);
+
+    for (quicklistNode* current = orig->head; current; current = current->next) {
+        quicklistNode* node = quicklistCreateNode();
+        if (current->encoding == QUICKLIST_NODE_ENCODING_RAW) {
+            node->zl = zmalloc(current->sz);
+            memcpy(node->zl, current->zl, current->sz);
+        }
+        node->count = current->count;
+        copy->count += node->count;
+        node->sz = current->sz;
+        node->encoding = current->encoding;
+
+        _quicklistInsertNodeAfter(copy, copy->fill, node);
+    }
+    return copy;
+}
+
+// 将quicklist尾部的元素挪到头部来
+void quicklistRotate(quicklist* quicklist) {
+    if (quicklist->count <= 1) {
+        return;
+    }
+
+    // 获取quicklist尾部的元素
+    unsigned char* p = ziplistIndex(quicklist->tail->zl, -1);
+    unsigned char* value;
+    long long longvalue;
+    unsigned int sz;
+    char longstr[32] = {0};
+    // 获取quicklist最后一个元素的值
+    ziplistGet(p, &value, &sz, &longvalue);
+
+    // 整型数值，将其转换成字符串
+    if (!value) {
+       sz = ll2string(longstr, sizeof(longstr), longvalue);
+       value = (unsigned char*) longstr;
+    }
+
+    // 将quicklist尾部的元素，插入到quicklist头部
+    quicklistPushHead(quicklist, value, sz);
+
+    // quicklist只有一个节点，头尾都在一个ziplist中，即插入的元素的ziplist和获取尾部元素的ziplist是同一个，
+    // 插入操作可能会导致ziplist重新分配内存，地址发生改变，从而导致上面获取的尾部元素的指针p的值发生改变，所以这里需要重新获取下尾部元素的指针
+    if (quicklist->len == 1) {
+        p = ziplistIndex(quicklist->tail->zl, -1);
+    }
+
+    // 删除quicklist尾部的元素
+    quicklistDelIndex(quicklist, quicklist->tail, &p);
+}
+
+int quicklistPopCustom(quicklist* quicklist, int where, unsigned char* data, unsigned int* sz, long long* sval,
+                       void* (*saver)(unsigned char* data, unsigned int sz)) {
+    unsigned char* p;
+    unsigned char* vstr;
+    unsigned int vlen;
+    long long vlong;
+    int pos = (where == QUICKLIST_HEAD) ? 0 : -1;
+
+    if (quicklist->count == 0)
+        return 0;
+
+    // 初始化返回值，字符串元素值，字符串元素值长度、整型元素值
+    if (data)
+        *data = NULL;
+    if (sz)
+        *sz = 0;
+    if (sval)
+        *sval = -123456789;
+
+    quicklistNode* node;
+    if (where == QUICKLIST_HEAD && quicklist->head) {
+
     }
 }

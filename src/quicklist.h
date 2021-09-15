@@ -56,12 +56,14 @@ typedef struct quicklistEntry {
     int offset; // 当前遍历元素在ziplist中的偏移（为负表示遍历方向从尾到头）
 } quicklistEntry;
 
+#define QUICKLIST_HEAD 0
+#define QUICKLIST_TAIL -1
 
-#define QUCIKLIST_NODE_ENCODING_RAW 1
-#define QUCIKLIST_NODE_ENCODING_LZF 2
+#define QUICKLIST_NODE_ENCODING_RAW 1
+#define QUICKLIST_NODE_ENCODING_LZF 2
 
-#define QUCIKLIST_NODE_CONITAINER_NONE 1
-#define QUCIKLIST_NODE_CONITAINER_ZIPLIST 1
+#define QUICKLIST_NODE_CONITAINER_NONE 1
+#define QUICKLIST_NODE_CONITAINER_ZIPLIST 1
 
 #define AL_START_HEAD 0
 #define AL_START_TAIL 1
@@ -99,4 +101,8 @@ quicklistIter* quicklistGetIteratorAtIdx(const quicklist* quicklist, const int d
 void quicklistReleaseIterator(quicklistIter* iter);
 
 int quicklistNext(quicklistIter* iter, quicklistEntry* entry);
+
+quicklist* quicklistDup(quicklist* orig);
+
+void quicklistRotate(quicklist* quicklist);
 #endif //REDIS_QUICKLIST_H
