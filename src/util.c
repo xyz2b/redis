@@ -61,8 +61,9 @@ int string2ll(const char* s, size_t slen, long long* value) {
         return 0;
 
     if (negative) {
-        // 有符号整数，比如char，一个字节，所能表示的值为-128 -> 127，所以对(-(-128+1)+1)=128，就是负数相反的正数，如果负数去除负号之后的值大于这个值，就是负值溢出了
-        if (v > (unsigned long long)(-(LLONG_MIN+1) + 1))   // 溢出
+        // 有符号整数，比如char，一个字节，所能表示的值为-128 -> 127，所以对( (unsigned char)(-(-128+1)) + 1 )=128，就是负数相反的正数，如果负数去除负号之后的值大于这个值，就是负值溢出了
+        // 这里强转的目的是因为有符号数放不下这么大的正值，所以要转成无符号数来存放
+        if (v > ((unsigned long long)(-(LLONG_MIN+1)) + 1))   // 溢出
             return 0;
         if (value != NULL) *value = -v;
     } else {
