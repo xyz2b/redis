@@ -11,6 +11,30 @@
 
 #define ZSKIPLIST_P 0.25
 
+#define LRU_BITS 24
+
+#define OBJ_ENCODING_RAW 0
+#define OBJ_ENCODING_INT 1
+#define OBJ_ENCODING_HT 2
+#define OBJ_ENCODING_ZIPMAP 3
+#define OBJ_ENCODING_LINKEDLIST 4
+#define OBJ_ENCODING_ZIPLIST 5
+#define OBJ_ENCODING_INTSET 6
+#define OBJ_ENCODING_SKIPLIST 7
+#define OBJ_ENCODING_EMBSTR8
+#define OBJ_ENCODING_QUICKLIST 9
+#define OBJ_ENCODING_STREAM 10
+
+typedef struct redisObject {
+    unsigned type:4;    // 类型
+    unsigned encoding:4;    // 编码
+    unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or
+                            * LFU data (least significant 8 bits frequency
+                            * and most significant 16 bits access time). */
+    int refcout;    // 该对象的引用数量
+    void* ptr;  // 指向底层实现数据结构的指针
+} robj;
+
 typedef struct zskiplistNode {
     sds ele;    // 存储元素
     double score;   // 元素分值
