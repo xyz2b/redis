@@ -4,7 +4,9 @@
 
 #ifndef REDIS_SERVER_H
 #define REDIS_SERVER_H
+#include <limits.h>
 #include "sds.h"
+#include "dict.h"
 
 #define MAXMEMORY_FLAG_LRU (1<<0)
 #define MAXMEMORY_FLAG_LFU (1<<1)
@@ -44,13 +46,15 @@
 #define OBJ_ENCODING_QUICKLIST 9
 #define OBJ_ENCODING_STREAM 10
 
+#define OBJ_SHARED_REFCOUNT INT_MAX
+
 typedef struct redisObject {
     unsigned type:4;    // 类型
     unsigned encoding:4;    // 编码
     unsigned lru:LRU_BITS; /* LRU time (relative to global lru_clock) or
                             * LFU data (least significant 8 bits frequency
                             * and most significant 16 bits access time). */
-    int refcout;    // 该对象的引用数量
+    int refcount;    // 该对象的引用数量
     void* ptr;  // 指向底层实现数据结构的指针
 } robj;
 
@@ -113,6 +117,11 @@ typedef struct {
     int minex, maxex;
 } zlexrangespec;
 
+typedef struct zset {
+    dict* dict;
+    zskiplist* zsl;
+} zset;
+
 
 extern struct sharedObjectsStruct shared;
 extern struct redisServer server;
@@ -137,7 +146,11 @@ zskiplistNode* zslLastInRange(zskiplist* zsl, zrangespec* range);
 void setCommand(client *c);
 
 robj* tryObjectEncoding(robj* o);
-
+void decrRefCount(robj* o);
+void incrRefCount(robj* o);
+robj* createObject(int type, void* ptr);
+robj* createStringObjectFromLongLong(long long value);
+robj* createStringObjectFromLongLongForValue(long long value);
 #define sdsEncodingObject(objptr) (objptr->encoding == OBJ_ENCODING_RAW || objptr->encoding == OBJ_ENCODING_EMBSTR)
 
 #endif //REDIS_SERVER_H

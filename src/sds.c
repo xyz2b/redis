@@ -7,6 +7,8 @@
 #include "sds.h"
 #include "sdsalloc.h"
 
+const char* SDS_NOINIT = "SDS_NOINT";
+
 // 获取不同type的sds结构体的大小
 static inline int sdsHdrSize(char type) {
     switch (type) {
@@ -566,4 +568,9 @@ sds sdsjoinsds(sds *argv, int argc, const char *sep, size_t seplen) {
     }
 
     return join;
+}
+
+// 移除sds中剩余的空闲空间
+sds sdsRemoveFreeSpace(sds s) {
+
 }

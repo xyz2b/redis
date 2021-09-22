@@ -209,4 +209,6 @@ sds sdsjoin(char **argv, int argc, char *sep);
 sds sdsjoinsds(sds *argv, int argc, const char *sep, size_t seplen);
 
 
+sds sdsRemoveFreeSpace(sds s);
+
 #endif //REDIS_SDS_H
