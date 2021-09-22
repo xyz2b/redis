@@ -9,6 +9,7 @@
 
 int string2ll(const char* s, size_t slen, long long* value);
 int ll2string(char *dst, size_t dstlen, long long svalue);
+int string2l(const char *s, size_t slen, long *lval);
 
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)

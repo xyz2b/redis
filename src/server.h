@@ -6,12 +6,31 @@
 #define REDIS_SERVER_H
 #include "sds.h"
 
+#define MAXMEMORY_FLAG_LRU (1<<0)
+#define MAXMEMORY_FLAG_LFU (1<<1)
+#define MAXMEMORY_FLAG_ALLKEYS (1<2)
+#define MAXMEMORY_FLAG_NO_SHARED_INTEGERS (MAXMEMORY_FLAG_LRU | MAXMEMORY_FLAG_LFU)
+
+#define PROTO_SHARED_SELECT_CMDS 10
+#define OBJ_SHARED_INTEGERS 10000
+#define OBJ_SHARED_BULKHDR_LEN 32
+
+#define UNIT_SECONDS 0
+#define UNIT_MILLISECONDS 1
+
 // 可以容纳2^64个元素
 #define ZSKIPLIST_MAXLEVEL 64
 
 #define ZSKIPLIST_P 0.25
 
 #define LRU_BITS 24
+
+
+#define OBJ_STRING 0
+#define OBJ_LIST 1
+#define OBJ_SET 2
+#define OBJ_ZSET 3
+#define OBJ_HASH 4
 
 #define OBJ_ENCODING_RAW 0
 #define OBJ_ENCODING_INT 1
@@ -21,7 +40,7 @@
 #define OBJ_ENCODING_ZIPLIST 5
 #define OBJ_ENCODING_INTSET 6
 #define OBJ_ENCODING_SKIPLIST 7
-#define OBJ_ENCODING_EMBSTR8
+#define OBJ_ENCODING_EMBSTR 8
 #define OBJ_ENCODING_QUICKLIST 9
 #define OBJ_ENCODING_STREAM 10
 
@@ -34,6 +53,36 @@ typedef struct redisObject {
     int refcout;    // 该对象的引用数量
     void* ptr;  // 指向底层实现数据结构的指针
 } robj;
+
+
+typedef struct client {
+    int argc;       // 命令的参数个数
+    robj** argv;    // 命令的参数数组
+} client;
+
+
+struct sharedObjectsStruct {
+    robj *crlf, *ok, *err, *emptybulk, *czero, *cone, *cnegone, *pong, *space,
+            *colon, *nullbulk, *nullmultibulk, *queued,
+            *emptymultibulk, *wrongtypeerr, *nokeyerr, *syntaxerr, *sameobjecterr,
+            *outofrangeerr, *noscripterr, *loadingerr, *slowscripterr, *bgsaveerr,
+            *masterdownerr, *roslaveerr, *execaborterr, *noautherr, *noreplicaserr,
+            *busykeyerr, *oomerr, *plus, *messagebulk, *pmessagebulk, *subscribebulk,
+            *unsubscribebulk, *psubscribebulk, *punsubscribebulk, *del, *unlink,
+            *rpop, *lpop, *lpush, *rpoplpush, *zpopmin, *zpopmax, *emptyscan,
+            *select[PROTO_SHARED_SELECT_CMDS],
+            *integers[OBJ_SHARED_INTEGERS],
+            *mbulkhdr[OBJ_SHARED_BULKHDR_LEN], /* "*<value>\r\n" */
+    *bulkhdr[OBJ_SHARED_BULKHDR_LEN];  /* "$<value>\r\n" */
+    sds minstring, maxstring;
+};
+
+typedef struct redisServer {
+    unsigned long long maxmemory;
+    int maxmemory_policy;
+
+};
+
 
 typedef struct zskiplistNode {
     sds ele;    // 存储元素
@@ -64,6 +113,10 @@ typedef struct {
     int minex, maxex;
 } zlexrangespec;
 
+
+extern struct sharedObjectsStruct shared;
+extern struct redisServer server;
+
 zskiplistNode* zslCreateNode(int level, double score, sds ele);
 zskiplist* zslCreate(void);
 void zslFreeNode(zskiplistNode* node);
@@ -79,5 +132,12 @@ int zslValueGteMin(double value, zrangespec* spec);
 int zslValueLteMax(double value, zrangespec* spec);
 zskiplistNode* zslFirstInRange(zskiplist* zsl, zrangespec* range);
 zskiplistNode* zslLastInRange(zskiplist* zsl, zrangespec* range);
+
+
+void setCommand(client *c);
+
+robj* tryObjectEncoding(robj* o);
+
+#define sdsEncodingObject(objptr) (objptr->encoding == OBJ_ENCODING_RAW || objptr->encoding == OBJ_ENCODING_EMBSTR)
 
 #endif //REDIS_SERVER_H

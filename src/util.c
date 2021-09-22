@@ -148,3 +148,16 @@ int ll2string(char *dst, size_t dstlen, long long svalue) {
     if (negative) dst[0] = '-';
     return length;
 }
+
+int string2l(const char *s, size_t slen, long *lval) {
+    long long llval;
+
+    if (!string2ll(s,slen,&llval))
+        return 0;
+
+    if (llval < LONG_MIN || llval > LONG_MAX)
+        return 0;
+
+    *lval = (long)llval;
+    return 1;
+}
