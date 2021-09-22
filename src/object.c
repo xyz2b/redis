@@ -219,8 +219,6 @@ robj* createStringObjectFromLongLongWithOptions(long long value, int valueobj) {
         }
     }
 
-
-
     return o;
 }
 

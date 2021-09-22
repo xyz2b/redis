@@ -570,7 +570,35 @@ sds sdsjoinsds(sds *argv, int argc, const char *sep, size_t seplen) {
     return join;
 }
 
-// 移除sds中剩余的空闲空间
+// 移除sds中剩余的空闲空间（让alloc==len，即所申请的空间正好可以存储现有的字符串）
 sds sdsRemoveFreeSpace(sds s) {
+    void* sh, *newsh;
+    char type, oldtype = s[-1] & SDS_TYPE_MASK; // 原sds的类型
+    int hdrlen, oldhdrlen = sdsHdrSize(oldtype);    // 原sds的头部大小
+    size_t len = sdslen(s);     // 原sds的已用长度
+    size_t avail = sdsavail(s); // 原sds的剩余长度
+    // 原sds的首地址
+    sh = (char*) s - oldhdrlen;
 
+    if (avail == 0) return s;
+
+    // 将sds存储字符串的空间缩减为正好可以存储当字符串的空间
+    type = sdsReqType(len); // 缩减之后新的sds类型
+    hdrlen = sdsHdrSize(type);  // 缩减之后新的sds头部长度
+
+    if (oldtype == type || type > SDS_TYPE_8) { // 如果缩容完的类型和之前类型相同，使用realloc重新分配内存即可，只是存储字符串的空间缩小，其他的内容不变
+        newsh = s_realloc(sh, oldhdrlen + len + 1);
+        if (newsh == NULL) return NULL;
+        s = (char *)newsh + oldhdrlen;
+    } else {    // 如果缩容完的类型和之前类型不相同，就需要改变头部字段的值，使用malloc重新创建sds，然后将原字符串内容copy到新的sds中
+        newsh = s_malloc(hdrlen + len + 1);
+        if (newsh == NULL) return NULL;
+        memcpy((char*)newsh+hdrlen, s, len + 1);
+        s_free(sh);
+        s = (char *)newsh + hdrlen;
+        s[-1] = type;
+        sdssetlen(s, len);
+    }
+    sdssetalloc(s, len);
+    return s;
 }
