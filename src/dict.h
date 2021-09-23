@@ -6,8 +6,12 @@
 #define REDIS_DICT_H
 #include <stdint.h>
 
+
 #define DICT_OK 0
 #define DICT_ERR 1
+
+#define dictGetKey(he) ((he)->key)
+#define dictGetVal(he) ((he)->v.val)
 
 typedef struct dictType {
     uint64_t (*hashFunction) (const void* key);
@@ -59,6 +63,11 @@ typedef void (dictScanBucketFunction) (void* privdata, dictEntry** bucketref);
 
 #define DICT_HT_INITIAL_SIZE 4
 
+#define dictSetSignedIntegerVal(entry, _val_) do { \
+    (entry)->v.s64 = _val_;                                                   \
+} while(0)
+#define dictSize(d) ((d)->ht[0].used+(d)->ht[1].used)
+
 #define dictFreeVal(d, entry) \
     if ((d)->type->valDestructor) \
         (d)->type->valDestructor((d)->privdata, (entry)->v.val)
@@ -98,6 +107,7 @@ int dictDelete(dict* d, const void* key);
 dictEntry* dictUnlink(dict* d, const void* key);
 // 查
 dictEntry* dictFind(dict* d, const void* key);
+void* dictFetchValue(dict* d, const void* key);
 // 釋放dict
 int dictRelease(dict* d);
 

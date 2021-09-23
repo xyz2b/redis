@@ -109,4 +109,7 @@ void quicklistRotate(quicklist* quicklist);
 int quicklistPop(quicklist* quicklist, int where, unsigned char** data, unsigned int* sz, long long* slong);
 int quicklistPopCustom(quicklist* quicklist, int where, unsigned char* data, unsigned int* sz, long long* sval,
                        void* (*saver)(unsigned char* data, unsigned int sz));
+
+unsigned long quicklistCount(const quicklist* ql);
+int quicklistCompare(unsigned char* p1, unsigned char* p2, int p2_len);
 #endif //REDIS_QUICKLIST_H

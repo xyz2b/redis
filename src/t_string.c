@@ -4,13 +4,44 @@
 
 #include <stddef.h>
 #include "server.h"
-#include "networking.h"
 
 #define OBJ_SET_NO_FLAGS 0
 #define OBJ_SET_NX (1<<0)
 #define OBJ_SET_XX (1<<1)
 #define OBJ_SET_EX (1<<2)
 #define OBJ_SET_PX (1<<3)
+
+// flags: xx/nx/ex/px标志位
+// expire: 过期时间
+// unit: 时间单位，秒或毫秒
+void setGenericCommand(client* c, int flags, robj* key, robj* val, robj* expire, int unit, robj* ok_reply, robj* abort_reply) {
+    long long milliseconds = 0;
+
+    // 如果有设置过期时间
+    if (expire) {
+        // 从字符串对象中获取过期时间存储在milliseconds中
+        if (getLongLongFromObjectOrReply(c, expire, &milliseconds, NULL) != C_OK) {
+            return;
+        }
+        if (milliseconds <= 0) {
+            addReplyErrorFormat(c, "invalid expire time in %s", c->cmd->name);
+            return;
+        }
+        if (unit == UNIT_SECONDS) milliseconds *= 1000;
+    }
+
+    // nx 且 键已存在  或  xx 且 键不存在
+    if ((flags && OBJ_SET_NX && lookupKeyWrite(c->db, key) != NULL) || (flags & OBJ_SET_XX && lookupKeyWrite(c->db, key) == NULL)) {
+        addReply(c, abort_reply ? abort_reply : shared.nullbulk);
+        return;
+    }
+    setKey(c->db, key, val);
+    server.dirty++;
+    if (expire) setExpire(c, c->db, key, mstime() + milliseconds);
+    notifyKeyspaceEvent(NOTIFY_STRING, "set", key, c->db->id);
+    if (expire) notifyKeyspaceEvent(NOTIFY_GENERIC, "expire", key, c->db->id);
+    addReply(c, ok_reply ? ok_reply : shared.ok);
+}
 
 /**
  * set key value [NX] [XX] [EX <seconds>] [PX <milliseconds>]
@@ -51,5 +82,49 @@ void setCommand(client *c) {
     }
 
     c->argv[2] = tryObjectEncoding(c->argv[2]);
+    setGenericCommand(c, flags, c->argv[1], c->argv[2], expire, unit, NULL, NULL);
+}
 
+void setnxCommand(client* c) {
+    c->argv[2] = tryObjectEncoding(c->argv[2]);
+    setGenericCommand(c, OBJ_SET_NX, c->argv[1], c->argv[2], NULL, 0, shared.cone, shared.czero);
+}
+
+void setexCommand(client* c) {
+    c->argv[3] = tryObjectEncoding(c->argv[3]);
+    setGenericCommand(c, OBJ_SET_NO_FLAGS, c->argv[1], c->argv[3], c->argv[2], UNIT_SECONDS, NULL, NULL);
+}
+
+void psetexCommand(client* c) {
+    c->argv[3] = tryObjectEncoding(c->argv[3]);
+    setGenericCommand(c, OBJ_SET_NO_FLAGS, c->argv[1], c->argv[3], c->argv[2], UNIT_MILLISECONDS, NULL, NULL);
+}
+
+int getGenericCommand(client* c) {
+    robj* o;
+
+    // 没找到key
+    if((o = lookupKeyReadOrReply(c, c->argv[1], shared.nullbulk)) == NULL)
+        return C_OK;
+
+    // 找到key
+    if (o->type != OBJ_STRING) {
+        addReply(c, shared.wrongtypeerr);
+        return C_ERR;
+    } else {
+        addReply(c, o);
+        return C_OK;
+    }
+}
+
+void getCommand(client* c) {
+    getGenericCommand(c);
+}
+
+void getsetCommand(client* c) {
+    if (getGenericCommand(c) == C_ERR) return;
+    c->argv[2] = tryObjectEncoding(c->argv[2]);
+    setKey(c->db, c->argv[1], c->argv[2]);
+    notifyKeyspaceEvent(NOTIFY_STRING, "set", c->argv[1], c->db->id);
+    server.dirty++;
 }
