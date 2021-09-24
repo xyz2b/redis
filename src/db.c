@@ -150,6 +150,10 @@ robj* lookupKeyWriteOrReply(client* c, robj* key, robj* reply) {
     return o;
 }
 
+robj* lookupKeyRead(redisDb* db, robj* key) {
+    return lookupKeyReadWithFlags(db, key, LOOKUP_NONE);
+}
+
 int dbDelete(redisDb* db, robj* key) {
 
 }

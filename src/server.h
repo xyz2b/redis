@@ -5,10 +5,14 @@
 #ifndef REDIS_SERVER_H
 #define REDIS_SERVER_H
 #include <limits.h>
+#include <string.h>
 #include "sds.h"
 #include "dict.h"
 #include "adlist.h"
 #include "quicklist.h"
+
+#define OBJ_HASH_KEY 1
+#define OBJ_HASH_VALUE 2
 
 #define C_OK 0
 #define C_ERR -1
@@ -71,6 +75,35 @@ typedef long long ustime_t;
 #define OBJ_ENCODING_STREAM 10
 
 #define OBJ_SHARED_REFCOUNT INT_MAX
+
+uint64_t dictSdsHash(const void* key) {
+    return dictGenHashFunction((unsigned char*)key, sdslen((char*)key));
+}
+
+int dictSdsKeyCompare(void* privdata, const void* key1, const void* key2) {
+    int l1, l2;
+    DICT_NOTUSED(privdata);
+
+    l1 = sdslen((sds)key1);
+    l2 = sdslen((sds)key2);
+    if (l1 != l2) return 0;
+    return memcpy(key1, key2, l1) == 0;
+}
+
+void dictSdsDestructor(void* privdata, void* val) {
+    DICT_NOTUSED(privdata);
+
+    sdsfree(val);
+}
+
+dictType hashDictType = {
+        dictSdsHash,
+        NULL,
+        NULL,
+        dictSdsKeyCompare,
+        dictSdsDestructor,
+        dictSdsDestructor,
+}
 
 typedef struct redisDb {
     dict* dict;     // keyspace
@@ -163,9 +196,12 @@ typedef struct redisServer {
 
     int list_max_ziplist_size;
     int list_compress_depth;
+
+    size_t hash_max_ziplist_value;
+    size_t hash_max_ziplist_entries;
 };
 
-// list迭代器，包装了quicklist的迭代器，因为list的底层就是quicklist
+// list对象的迭代器，包装了quicklist的迭代器，因为list的底层就是quicklist
 typedef struct {
     robj* subject;
     unsigned char encoding;
@@ -178,6 +214,15 @@ typedef struct {
     listTypeIterator* li;
     quicklistEntry entry;
 } listTypeEntry;
+
+// hash对象的迭代器
+typedef struct {
+    robj* subject;
+    int encoding;
+    unsigned char* fptr, *vptr; // ziplist底层结：fptr是当前遍历的key的项，vptr是当前遍历的value的项
+    dictIterator* di;   // hashtable底层结构：封装了dict的迭代器
+    dictEntry* de;  // hashtable底层结构：当前遍历到的项
+} hashTypeIterator;
 
 typedef struct zskiplistNode {
     sds ele;    // 存储元素
@@ -246,8 +291,16 @@ void lpushCommand(client* c);
 void rpushCommand(client* c);
 void lpopCommand(client* c);
 void rpopCommand(client* c);
+void linsertCommand(client* c);
+void llenCommand(client* c);
+void lindexCommand(client* c);
+void lsetCommand(client* c);
 
-        robj* tryObjectEncoding(robj* o);
+// hash对象
+void hgetCommand(client* c);
+void hmgetCommand(client* c);
+
+robj* tryObjectEncoding(robj* o);
 void decrRefCount(robj* o);
 void incrRefCount(robj* o);
 robj* createObject(int type, void* ptr);
@@ -268,6 +321,7 @@ void freeObjAsync(robj* o);
 void setExpire(client* c, redisDb* db, robj* key, long long when);
 void notifyKeyspaceEvent(int type, char* event, robj* key, int dbid);
 robj* lookupKeyReadOrReply(client *c, robj* key, robj* reply);
+robj* lookupKeyRead(redisDb* db, robj* key);
 robj* createQuickllistObject(void);
 void dbAdd(redisDb* db, robj* key, robj* val);
 robj* createEmbeddedStringObject(const char* ptr, size_t len);
@@ -278,12 +332,16 @@ void addReplyError(client* c, const char* err);
 void addReplyErrorFormat(client* c, const char* fmt, ...);
 void addReplyLongLong(client* c, long long ll);
 void addReplyBulk(client* c, robj* obj);
+void addReplyMultiBulkLen(client* c, long length);
+void addReplyBulkBuffer(client* c, const void* p, size_t len);
 robj* lookupKeyWriteOrReply(client* c, robj* key, robj* reply);
 void signalModifiedKey(redisDb* db, robj* key);
 void touchWatchKey(redisDb* db, robj* key);
 int checkType(client* c, robj* o, int type);
 robj* createStringObject(const char* ptr, size_t len);
+robj* createHashObject(void);
 int dbDelete(redisDb* db, robj* key);
+int getLongFromObjectOrReply(client* c, robj* o, long* target, const char* msg);
 #define LOOKUP_NONE 0
 #define LOOKUP_NOTOUCH (1<<0)
 #define sdsEncodingObject(objptr) (objptr->encoding == OBJ_ENCODING_RAW || objptr->encoding == OBJ_ENCODING_EMBSTR)

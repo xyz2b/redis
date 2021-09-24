@@ -93,10 +93,12 @@ void pushGenericCommand(client* c, int where) {
     server.dirty += pushed;
 }
 
+// LPUSH KEY_NAME VALUE1..VALUEN
 void lpushCommand(client* c) {
     pushGenericCommand(c, LIST_HEAD);
 }
 
+// RPUSH KEY_NAME VALUE1..VALUEN
 void rpushCommand(client* c) {
     pushGenericCommand(c, LIST_TAIL);
 }
@@ -125,12 +127,19 @@ void popGenericCommand(client* c, int where) {
     }
 }
 
+// LPOP KEY_NAME
 void lpopCommand(client* c) {
     popGenericCommand(c, LIST_HEAD);
 }
 
+// RPOP KEY_NAME
 void rpopCommand(client* c) {
     popGenericCommand(c, LIST_TAIL);
+}
+
+void listTypeReleaseIterator(listTypeIterator* li) {
+    zfree(li->iter);
+    zfree(li);
 }
 
 listTypeIterator* listTypeInitIterator(robj* subject, long index, unsigned char direction) {
@@ -187,9 +196,23 @@ robj* listTypeGet(listTypeEntry* entry) {
 }
 
 void listTypeInsert(listTypeEntry* entry, robj* value, int where) {
-
+    if (entry->li->encoding == OBJ_ENCODING_QUICKLIST) {
+        value = getDecodeObject(value);
+        sds str = value->ptr;
+        size_t len = sdslen(str);
+        if (where == LIST_TAIL) {
+            quicklistInsertAfter((quicklist*)entry->entry.quicklist, &entry->entry, str, len);
+        } else if (where == LIST_HEAD) {
+            quicklistInsertBefore((quicklist*)entry->entry.quicklist, &entry->entry, str, len);
+        }
+        decrRefCount(value);
+    } else {
+        panic("Unknown list encoding");
+    }
 }
 
+// LINSERT key BEFORE|AFTER pivot value
+// 将值 value 插入到列表 key 当中，位于值 pivot 之前或之后
 void linsertCommand(client* c) {
     int where;
     robj* subject;
@@ -208,7 +231,7 @@ void linsertCommand(client* c) {
 
     if ((subject == lookupKeyWriteOrReply(c, c->argv[1], shared.czero)) == NULL || checkType(c, subject, OBJ_LIST)) return;
 
-    // 从头到尾遍历
+    // 从头到尾遍历，找到插入位置，并插入
     iter = listTypeInitIterator(subject, 0, LIST_TAIL);
     while (listTypeNext(iter, &entry)) {
         if (listTypeEqual(&entry, c->argv[3])) {
@@ -216,5 +239,81 @@ void linsertCommand(client* c) {
             inserted = 1;
             break;
         }
+    }
+    listTypeReleaseIterator(iter);
+
+    // 如果插入成功就创建对应的信号和事件
+    if (inserted) {
+        signalModifiedKey(c->db, c->argv[1]);
+        notifyKeyspaceEvent(NOTIFY_LIST, "linsert", c->argv[1], c->db->id);
+        server.dirty++;
+    } else {
+        addReply(c, shared.cnegone);
+        return;
+    }
+    // 返回插入后list的元素个数
+    addReplyLongLong(c, listTypeLength(subject));
+}
+
+// LLEN KEY_NAME
+void llenCommand(client* c) {
+    robj* o = lookupKeyReadOrReply(c, c->argv[1], shared.czero);
+    if (o == NULL || checkType(c, o, OBJ_LIST)) return;
+    addReplyLongLong(c, listTypeLength(o));
+}
+
+// LINDEX KEY_NAME INDEX_POSITION
+// 列表中下标为指定索引值的元素。 如果指定索引值不在列表的区间范围内，返回 nil
+void lindexCommand(client* c) {
+    robj* o = lookupKeyReadOrReply(c, c->argv[1], shared.nullbulk);
+    if (o == NULL || checkType(c, o, OBJ_LIST)) return;
+    long index;
+    robj* value = NULL;
+
+    if ((getLongFromObjectOrReply(c, c->argv[2], &index, NULL) != C_OK))
+        return;
+
+    if (o->encoding == OBJ_ENCODING_QUICKLIST) {
+        quicklistEntry entry;
+        if (quicklistIndex(o->ptr, index, &entry)) {
+            if (entry.value) {  // 字符串型值
+                value = createStringObject((char*)entry.value, entry.sz);
+            } else {    // 整型值
+                value = createStringObjectFromLongLong(entry.longval);
+            }
+            addReplyBulk(c, value);
+            // value只是用于临时存储查询到的值的对象，在返回结果之后，value对象就没有用了，需要将其引用减一（不直接删除的原因是 value在创建时可能是共享的，如果不睡共享的，引用为0，也会被回收）
+            decrRefCount(value);
+        } else {
+            addReply(c, shared.nullbulk);
+        }
+    } else {
+        panic("Unknown list encoding");
+    }
+}
+
+// LSET KEY_NAME INDEX VALUE
+void lsetCommand(client* c) {
+    robj* o = lookupKeyWriteOrReply(c, c->argv[1], shared.nokeyerr);
+    if (o == NULL || checkType(c, o, OBJ_LIST)) return;
+    long index;
+    robj* value = c->argv[3];
+
+    if ((getLongFromObjectOrReply(c, c->argv[2], &index, NULL) != C_OK)) return;
+
+    if (o->encoding == OBJ_ENCODING_QUICKLIST) {
+        quicklist* ql = o->ptr;
+        int replaced = quicklistReplaceAtIndex(ql, index, value->ptr, sdslen(value->ptr));
+
+        if (!replaced) {
+            addReply(c, shared.outofrangeerr);
+        } else {
+            addReply(c, shared.ok);
+            signalModifiedKey(c->db, c->argv[1]);
+            notifyKeyspaceEvent(NOTIFY_LIST, "lset", c->argv[1], c->db->id);
+            server.dirty++;
+        }
+    } else {
+        panic("Unknown list encoding");
     }
 }

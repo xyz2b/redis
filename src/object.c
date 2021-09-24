@@ -9,6 +9,7 @@
 #include "quicklist.h"
 #include "dict.h"
 #include "zmalloc.h"
+#include "ziplist.h"
 
 #define OBJ_ENCODING_EMBSTR_SIZE_LIMIT 44
 
@@ -336,4 +337,27 @@ int checkType(client* c, robj* o, int type) {
         return 1;
     }
     return 0;
+}
+
+int getLongFromObjectOrReply(client* c, robj* o, long* target, const char* msg) {
+    long long value;
+
+    if (getLongLongFromObjectOrReply(c, o, &value, msg) != C_OK) return C_ERR;
+    if (value < LONG_MIN || value > LONG_MAX) {
+        if (msg != NULL) {
+            addReplyError(c, (char*)msg);
+        } else {
+            addReplyError(c, "value is out of range");
+        }
+        return C_ERR;
+    }
+    *target = value;
+    return C_OK;
+}
+
+robj* createHashObject(void) {
+    unsigned char* zl = ziplistNew();
+    robj* o = createObject(OBJ_HASH, zl);
+    o->encoding = OBJ_ENCODING_ZIPLIST;
+    return o;
 }

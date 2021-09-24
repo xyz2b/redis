@@ -548,3 +548,4 @@ void* dictFetchValue(dict* d, const void* key) {
     he = dictFind(d, key);
     return he ? dictGetVal(he) : NULL;
 }
+

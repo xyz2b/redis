@@ -117,6 +117,7 @@ int getGenericCommand(client* c) {
     }
 }
 
+// GET KEY_NAME
 void getCommand(client* c) {
     getGenericCommand(c);
 }

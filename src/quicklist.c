@@ -425,7 +425,7 @@ int quicklistIndex(const quicklist* quicklist, const long long idx, quicklistEnt
 }
 
 // 替换quicklist索引index处的元素值，data为新的元素值，sz为新的元素值的长度
-// 0没有发生替换，1发生替换
+// 0表示没有找到对应索引的元素，所以没有发生替换，1表示发生了替换
 int quicklistReplaceAtIndex(quicklist* quicklist, long index, void* data, int sz) {
     quicklistEntry entry;
 

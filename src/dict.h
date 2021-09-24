@@ -6,6 +6,7 @@
 #define REDIS_DICT_H
 #include <stdint.h>
 
+#define DICT_NOTUSED(V) ((void)V)
 
 #define DICT_OK 0
 #define DICT_ERR 1
@@ -18,7 +19,7 @@ typedef struct dictType {
     void* (*keyDup) (void* privdata, const void* key);
     void* (*valDup) (void* privdata, const void* obj);
     int (*keyCompare) (void* privdata, const void* key1, const void* key2);
-    void (*keyDestructor) (void*privdata, const void* key);
+    void (*keyDestructor) (void* privdata, const void* key);
     void (*valDestructor) (void* privdata, const void* obj);
 } dictType;
 
@@ -128,4 +129,7 @@ dictIterator* dictGetIterator(dict* d);
 dictIterator* dictGetSafeIterator(dict* d);
 dictEntry* dictNext(dictIterator* iter);
 void dictReleaseIterator(dictIterator* iter);
+
+
+uint64_t dictGenHashFunction(const void* key, int len);
 #endif //REDIS_DICT_H
