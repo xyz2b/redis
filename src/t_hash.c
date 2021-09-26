@@ -25,9 +25,9 @@ unsigned long hashTypeLength(const robj* o) {
 }
 
 // hashTypeSet的flags值含义
-// 直接用传进来的field作为key；不然就复制一份，用复制的这份，传进来的释放掉
+// 直接用传进来的field作为key；不然就复制一份（深copy），用复制的这份
 #define HASH_SET_TAKE_FIELD (1<<0)
-// 直接用传进来的value作为value；不然就复制一份，用复制的这份，传进来的释放掉
+// 直接用传进来的value作为value；不然就复制一份（深copy），用复制的这份
 #define HASH_SET_TAKE_VALUE (1<<1)
 #define HASH_SET_COPY 0
 
