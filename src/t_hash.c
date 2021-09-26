@@ -8,6 +8,22 @@
 #include "sds.h"
 #include "zmalloc.h"
 
+void hashTypeConvert(robj* o, int enc);
+
+
+unsigned long hashTypeLength(const robj* o) {
+    unsigned long length = ULONG_MAX;
+
+    if (o->encoding == OBJ_ENCODING_ZIPLIST) {
+        length = ziplistLen(o->ptr) / 2;
+    } else if (o->encoding == OBJ_ENCODING_HT) {
+        length = dictSize((const dict*)o->ptr);
+    } else {
+        panic("Unknown hash encoding");
+    }
+    return length;
+}
+
 // hashTypeSet的flags值含义
 // 直接用传进来的field作为key；不然就复制一份，用复制的这份，传进来的释放掉
 #define HASH_SET_TAKE_FIELD (1<<0)
@@ -17,8 +33,51 @@
 
 // 在hash对象中set key/value
 // 其中会根据键值对数量判断是否需要转换编码
-int hashTypeSet(robj* o, sds filed, sds value, int flags) {
+// 发生了更新返回1（key已存在），没有发生更新返回0（key不存在）
+int hashTypeSet(robj* o, sds field, sds value, int flags) {
+    int update = 0;
 
+    if (o->encoding == OBJ_ENCODING_ZIPLIST) {
+        unsigned char* zl, *fptr, *vptr;
+
+        zl = o->ptr;
+        fptr = ziplistIndex(zl, ZIPLIST_HEAD);
+        if (fptr != NULL) {
+            // 找到key所在ziplist中的项
+            fptr = ziplistFind(fptr, (unsigned char*)field, sdslen(field), 1);
+            if (fptr != NULL) { // 在ziplist找到了key
+                // 获取value所在的项
+                vptr = ziplistNext(zl, fptr);
+
+                assert(vptr != NULL);
+                update = 1;
+
+                // 删除现有的value
+                ziplistDelete(zl, &vptr);
+
+                // 在原来value的位置，重新插入新的value
+                zl = ziplistInsert(zl, vptr, (unsigned char*) value, sdslen(value));
+            }
+        }
+
+        // ziplist中没找到key，在尾部插入
+        if (!update) {
+            zl = ziplistPush(zl, (unsigned char*)field, sdslen(field), ZIPLIST_TAIL);
+            zl = ziplistPush(zl, (unsigned char*)value, sdslen(value), ZIPLIST_TAIL);
+        }
+
+        // 因为再插入过程中，可能涉及内存重新分配，原zl的地址可能会发生改变，所以这里需要重新赋值
+        o->ptr = zl;
+
+        // 如果插入之后现有的键值对数量大于设置的ziplist所能存储的最大值，就需要转换编码为hashtable
+        if (hashTypeLength(o) > server.hash_max_ziplist_entries)
+            hashTypeConvert(o, OBJ_ENCODING_HT);
+    } else if (o->encoding == OBJ_ENCODING_HT) {
+
+    } else {
+        panic("Unknown hash encoding");
+    }
+    return update;
 }
 
 // filed作为key，从hashtable作为底层结构的hash中（o）获取值
