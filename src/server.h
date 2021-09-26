@@ -29,6 +29,7 @@ typedef long long ustime_t;
 #define NOTIFY_STRING (1<<3)        // $
 #define NOTIFY_GENERIC (1<<2)       // g
 #define NOTIFY_LIST (1<<4)          // l
+#define NOTIFY_HASH (1<<6)          // h
 
 
 #define CLIENT_DIRTY_CAS (1<<5)
@@ -103,7 +104,7 @@ dictType hashDictType = {
         dictSdsKeyCompare,
         dictSdsDestructor,
         dictSdsDestructor,
-}
+};
 
 typedef struct redisDb {
     dict* dict;     // keyspace
@@ -215,7 +216,7 @@ typedef struct {
     quicklistEntry entry;
 } listTypeEntry;
 
-// hash对象的迭代器
+// hash对象的迭代器以及entry
 typedef struct {
     robj* subject;
     int encoding;
@@ -278,6 +279,16 @@ int zslValueLteMax(double value, zrangespec* spec);
 zskiplistNode* zslFirstInRange(zskiplist* zsl, zrangespec* range);
 zskiplistNode* zslLastInRange(zskiplist* zsl, zrangespec* range);
 
+#define HASHTABLE_MIN_FILL 10   // minimal hash table fill 10%
+int htNeedResize(dict* dict) {
+    long long size, used;
+
+    size = dictSlots(dict);
+    used = dictSize(dict);
+
+    return (size > DICT_HT_INITIAL_SIZE && (used * 100 / size < HASHTABLE_MIN_FILL));
+}
+
 // 字符串对象
 void setCommand(client *c);
 void setnxCommand(client* c);
@@ -299,6 +310,13 @@ void lsetCommand(client* c);
 // hash对象
 void hgetCommand(client* c);
 void hmgetCommand(client* c);
+void hsetCommand(client* c);
+void hdelCommand(client* c);
+void hlenCommand(client* c);
+void hexitsCommand(client* c);
+void hgetallCommand(client* c);
+void hkeysCommand(client* c);
+void hvalsCommand(client* c);
 
 robj* tryObjectEncoding(robj* o);
 void decrRefCount(robj* o);
@@ -334,7 +352,9 @@ void addReplyLongLong(client* c, long long ll);
 void addReplyBulk(client* c, robj* obj);
 void addReplyMultiBulkLen(client* c, long length);
 void addReplyBulkBuffer(client* c, const void* p, size_t len);
+void addReplyBulkLongLong(client* c, long long ll);
 robj* lookupKeyWriteOrReply(client* c, robj* key, robj* reply);
+void scanGenericCommand(client* c, robj* o, unsigned long cursor);
 void signalModifiedKey(redisDb* db, robj* key);
 void touchWatchKey(redisDb* db, robj* key);
 int checkType(client* c, robj* o, int type);

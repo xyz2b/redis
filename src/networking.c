@@ -34,3 +34,8 @@ void addReplyBulk(client* c, robj* obj) {
 void addReplyBulkBuffer(client* c, const void* p, size_t len) {
 
 }
+
+// add a long long as bulk reply
+void addReplyBulkLongLong(client* c, long long ll)  {
+
+}

@@ -67,7 +67,8 @@ typedef void (dictScanBucketFunction) (void* privdata, dictEntry** bucketref);
 #define dictSetSignedIntegerVal(entry, _val_) do { \
     (entry)->v.s64 = _val_;                                                   \
 } while(0)
-#define dictSize(d) ((d)->ht[0].used+(d)->ht[1].used)
+#define dictSize(d) ((d)->ht[0].used+(d)->ht[1].used)       // dict有多少个元素
+#define dictSlots(d) ((d)->ht[0].size+(d)->ht[1].size)      // dict底层数组使用量
 
 #define dictFreeVal(d, entry) \
     if ((d)->type->valDestructor) \
@@ -94,6 +95,7 @@ typedef void (dictScanBucketFunction) (void* privdata, dictEntry** bucketref);
 
 #define dictHashKey(d, key) (d)->type->hashFunction(key)
 #define dictIsRehashing(d) ((d)->rehashidx != -1)
+
 
 // 创建
 dict* dictCreate(dictType* type, void* privDataPtr);
@@ -132,4 +134,6 @@ void dictReleaseIterator(dictIterator* iter);
 
 
 uint64_t dictGenHashFunction(const void* key, int len);
+
+int dictResize(dict* d);
 #endif //REDIS_DICT_H

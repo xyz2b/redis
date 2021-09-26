@@ -145,15 +145,33 @@ robj* lookupKeyReadOrReply(client *c, robj* key, robj* reply) {
 }
 
 robj* lookupKeyWriteOrReply(client* c, robj* key, robj* reply) {
-    robj* o = lookupKeyWrite(c->db, key);
+    robj *o = lookupKeyWrite(c->db, key);
     if (!o) addReply(c, reply);
     return o;
 }
 
-robj* lookupKeyRead(redisDb* db, robj* key) {
-    return lookupKeyReadWithFlags(db, key, LOOKUP_NONE);
+int dbDelete(redisDb* db, robj* key) {
+
 }
 
-int dbDelete(redisDb* db, robj* key) {
+
+void scanGenericCommand(client* c, robj* o, unsigned long cursor) {
+    // step 1 解析参数
+
+
+    // step 2 遍历集合
+    if (o == NULL) { // o == NULL 遍历整个db的keyspace
+
+    } else if (o->type == OBJ_HASH && o->encoding == OBJ_ENCODING_HT) { // 遍历一个hash中所有key/value
+
+    } else if (o->type == OBJ_SET && o->encoding == OBJ_ENCODING_HT) {  // 遍历一个set中所有元素
+
+    } else if (o->type == OBJ_ZSET && o->encoding == OBJ_ENCODING_SKIPLIST) { // 遍历一个zset中所有元素
+
+    }
+
+    // step 3 过滤元素
+
+    // step 4 返回结果给客户端
 
 }
