@@ -394,7 +394,7 @@ unsigned char *lpLast(unsigned char* lp) {
 }
 
 // 获取lp中元素个数
-unsigned char* lpLength(unsigned char* lp) {
+uint32_t lpLength(unsigned char* lp) {
     uint32_t numele = lpGetNumElements(lp);
 
     if (numele != LP_HDR_NUMELE_UNKNOWN) return numele;

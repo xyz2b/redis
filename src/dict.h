@@ -136,4 +136,6 @@ void dictReleaseIterator(dictIterator* iter);
 uint64_t dictGenHashFunction(const void* key, int len);
 
 int dictResize(dict* d);
+
+unsigned long dictScan(dict* d, unsigned long v, dictScanFunction* fn, dictScanBucketFunction* bucketfn, void* privdata);
 #endif //REDIS_DICT_H

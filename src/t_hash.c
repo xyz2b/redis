@@ -2,14 +2,9 @@
 // Created by xyzjiao on 9/23/21.
 //
 
-#include <stdlib.h>
-#include <errno.h>
 #include <ctype.h>
 #include "server.h"
-#include "redisassert.h"
-#include "ziplist.h"
-#include "sds.h"
-#include "zmalloc.h"
+
 
 void hashTypeConvert(robj* o, int enc);
 

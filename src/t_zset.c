@@ -3,8 +3,6 @@
 //
 
 #include "server.h"
-#include "zmalloc.h"
-#include "redisassert.h"
 
 // 创建zsl节点
 zskiplistNode* zslCreateNode(int level, double score, sds ele) {

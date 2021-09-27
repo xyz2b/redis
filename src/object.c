@@ -2,14 +2,7 @@
 // Created by xyzjiao on 9/22/21.
 //
 
-#include <string.h>
 #include "server.h"
-#include "redisassert.h"
-#include "util.h"
-#include "quicklist.h"
-#include "dict.h"
-#include "zmalloc.h"
-#include "ziplist.h"
 
 #define OBJ_ENCODING_EMBSTR_SIZE_LIMIT 44
 
@@ -223,6 +216,10 @@ void decrRefCount(robj* o) {
         if (o->refcount <= 0) panic("decrRefCount against refcount <= 0");
         if (o->refcount != OBJ_SHARED_REFCOUNT) o->refcount--;
     }
+}
+
+void decrRefCountVoid(void* o) {
+    decrRefCount(o);
 }
 
 void incrRefCount(robj* o) {

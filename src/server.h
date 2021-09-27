@@ -4,12 +4,39 @@
 
 #ifndef REDIS_SERVER_H
 #define REDIS_SERVER_H
-#include <limits.h>
+
+#include "config.h"
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include "sds.h"
-#include "dict.h"
-#include "adlist.h"
-#include "quicklist.h"
+#include <time.h>
+#include <limits.h>
+#include <unistd.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <pthread.h>
+#include <syslog.h>
+#include <netinet/in.h>
+#include <signal.h>
+
+typedef long long mstime_t; /* millisecond time type. */
+typedef long long ustime_t; /* microsecond time type. */
+
+#include "sds.h"     /* Dynamic safe strings */
+#include "dict.h"    /* Hash tables */
+#include "adlist.h"  /* Linked lists */
+#include "zmalloc.h" /* total memory usage aware version of malloc/free */
+#include "ziplist.h" /* Compact list data structure */
+#include "intset.h"  /* Compact integer set structure */
+#include "util.h"    /* Misc functions useful in many places */
+#include "quicklist.h"  /* Lists are encoded as linked lists of
+                           N-elements flat arrays */
+
+#include "redisassert.h"
+
+
+#define LONG_STR_SIZE 21    // bytes needed for long -> str + '\0'
 
 #define OBJ_HASH_KEY 1
 #define OBJ_HASH_VALUE 2
@@ -19,8 +46,6 @@
 
 #define CMD_READONLY (1<<1)
 
-typedef long long mstime_t;
-typedef long long ustime_t;
 
 #define LIST_HEAD 0
 #define LIST_TAIL 1
@@ -77,34 +102,13 @@ typedef long long ustime_t;
 
 #define OBJ_SHARED_REFCOUNT INT_MAX
 
-uint64_t dictSdsHash(const void* key) {
-    return dictGenHashFunction((unsigned char*)key, sdslen((char*)key));
-}
+uint64_t dictSdsHash(const void* key);
 
-int dictSdsKeyCompare(void* privdata, const void* key1, const void* key2) {
-    int l1, l2;
-    DICT_NOTUSED(privdata);
+int dictSdsKeyCompare(void* privdata, const void* key1, const void* key2);
 
-    l1 = sdslen((sds)key1);
-    l2 = sdslen((sds)key2);
-    if (l1 != l2) return 0;
-    return memcpy(key1, key2, l1) == 0;
-}
+void dictSdsDestructor(void* privdata, void* val);
 
-void dictSdsDestructor(void* privdata, void* val) {
-    DICT_NOTUSED(privdata);
-
-    sdsfree(val);
-}
-
-dictType hashDictType = {
-        dictSdsHash,
-        NULL,
-        NULL,
-        dictSdsKeyCompare,
-        dictSdsDestructor,
-        dictSdsDestructor,
-};
+extern dictType hashDictType;
 
 typedef struct redisDb {
     dict* dict;     // keyspace
@@ -280,14 +284,7 @@ zskiplistNode* zslFirstInRange(zskiplist* zsl, zrangespec* range);
 zskiplistNode* zslLastInRange(zskiplist* zsl, zrangespec* range);
 
 #define HASHTABLE_MIN_FILL 10   // minimal hash table fill 10%
-int htNeedResize(dict* dict) {
-    long long size, used;
-
-    size = dictSlots(dict);
-    used = dictSize(dict);
-
-    return (size > DICT_HT_INITIAL_SIZE && (used * 100 / size < HASHTABLE_MIN_FILL));
-}
+int htNeedResize(dict* dict);
 
 // 字符串对象
 void setCommand(client *c);
@@ -317,6 +314,7 @@ void hexitsCommand(client* c);
 void hgetallCommand(client* c);
 void hkeysCommand(client* c);
 void hvalsCommand(client* c);
+void hscanCommand(client* c);
 
 robj* tryObjectEncoding(robj* o);
 void decrRefCount(robj* o);
@@ -362,6 +360,7 @@ robj* createStringObject(const char* ptr, size_t len);
 robj* createHashObject(void);
 int dbDelete(redisDb* db, robj* key);
 int getLongFromObjectOrReply(client* c, robj* o, long* target, const char* msg);
+void decrRefCountVoid(void* o);
 #define LOOKUP_NONE 0
 #define LOOKUP_NOTOUCH (1<<0)
 #define sdsEncodingObject(objptr) (objptr->encoding == OBJ_ENCODING_RAW || objptr->encoding == OBJ_ENCODING_EMBSTR)

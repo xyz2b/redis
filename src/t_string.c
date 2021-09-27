@@ -2,7 +2,6 @@
 // Created by xyzjiao on 9/22/21.
 //
 
-#include <stddef.h>
 #include "server.h"
 
 #define OBJ_SET_NO_FLAGS 0

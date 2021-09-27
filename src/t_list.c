@@ -2,11 +2,7 @@
 // Created by xyzjiao on 9/23/21.
 //
 
-#include <string.h>
 #include "server.h"
-#include "quicklist.h"
-#include "redisassert.h"
-#include "zmalloc.h"
 
 
 void* listPopSaver(unsigned char* data, unsigned int sz) {

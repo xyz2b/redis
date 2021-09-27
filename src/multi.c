@@ -3,7 +3,6 @@
 //
 
 #include "server.h"
-#include "dict.h"
 
 // 通知watch该key的客户端
 void touchWatchKey(redisDb* db, robj* key) {

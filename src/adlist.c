@@ -2,6 +2,7 @@
 // Created by xyzjiao on 9/2/21.
 //
 
+#include <stdlib.h>
 #include "adlist.h"
 #include "zmalloc.h"
 

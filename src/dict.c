@@ -558,3 +558,82 @@ int dictResize(dict* d) {
         minimal = DICT_HT_INITIAL_SIZE;
     return dictExpand(d, minimal);
 }
+
+// 翻转bit
+static unsigned long rev(unsigned long v) {
+    unsigned long s = 8 * sizeof(v);    // v总共多少bit，2的次方的值
+    unsigned long mask = ~0;    // 全1
+    while ((s >>= 1) > 0) {
+        mask ^= (mask << s);
+        v = ((v >> s) & mask) | ((v << s) & ~mask);
+    }
+    return v;
+}
+
+// 遍历dict
+// cursor
+// 初始时，使用cursor 0来调用该函数
+// 该函数会遍历所需要的结果集中的一部分子集，然后返回新的cursor，下次遍历该结果集时需要使用这个cursor去获取剩余的元素
+// 当返回0，代表遍历完成结果集
+unsigned long dictScan(dict* d, unsigned long v, dictScanFunction* fn, dictScanBucketFunction* bucketfn, void* privdata) {
+    dictht* t0, *t1;
+    const dictEntry* de, *next;
+    unsigned long m0, m1;
+
+    if (dictSize(d)) {
+        t0 = &(d->ht[0]);
+        m0 = t0->sizemask;
+        if (bucketfn) bucketfn(privdata, &t0->table[v&m0]);
+        de = t0->table[v & m0]; // 获取cursor对应对应的槽位，(sizemask = size - 1)，不超过size - 1的结果都是cursor
+        // 比如size = 8, sizemask = 7(0111)，cursor从0开始，即从槽位0开始，槽位1，槽位2，....，每次遍历一个槽位上的所有元素
+        while (de) {    // 遍历该槽位上的所有元素
+            next = de->next;
+            fn(privdata, de);   //使用传入的自定义的func，获取被遍历元素的值，并进行相应的存储，存储在privdata中
+            de = next;
+        }
+
+        v |= ~m0;   // ~m0 (1000)   --> 0000...1000        1011        1111
+        // 翻转v的bit
+        v = rev(v); //              --> 0001...0000        1101        1111
+        v++;        //              --> 0001...0001        1110        0000
+        v = rev(v); //              --> 1000...1000        0111
+
+    } else {
+        t0 = &d->ht[0];
+        t1 = &d->ht[1];
+
+        // mark sure t0 is the smaller and t1 shi the bigger table
+        if (t0->size > t1->size) {
+            t0 = &d->ht[1];
+            t1 = &d->ht[0];
+        }
+
+        m0 = t0->sizemask;
+        m1 = t1->sizemask;
+
+        if (bucketfn) bucketfn(privdata, &t0->table[v & m0]);
+        de = t0->table[v & m0];
+        while (de) {
+            next = de->next;
+            fn(privdata, de);   //使用传入的自定义的func，获取被遍历元素的值，并进行相应的存储，存储在privdata中
+            de = next;
+        }
+
+        do {
+            if (bucketfn) bucketfn(privdata, &t1->table[v & m1]);
+            de = t1->table[v & m1];
+            while (de) {
+                next = de->next;
+                fn(privdata, de);   //使用传入的自定义的func，获取被遍历元素的值，并进行相应的存储，存储在privdata中
+                de = next;
+            }
+
+            v |= ~m0;   // ~m0 (1000)   --> 0000...1000        1011        1111
+            // 翻转v的bit
+            v = rev(v); //              --> 0001...0000        1101        1111
+            v++;        //              --> 0001...0001        1110        0000
+            v = rev(v); //              --> 1000...1000        0111
+        } while (v & (m0 ^ m1));
+    }
+    return v;
+}
